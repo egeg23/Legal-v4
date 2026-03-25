@@ -6,7 +6,7 @@ import os
 
 # Directories
 UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', 'uploads')
-MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB
+MAX_CONTENT_LENGTH = 100 * 1024 * 1024  # 16MB
 ALLOWED_EXTENSIONS = {'pdf', 'doc', 'docx', 'txt'}
 
 # API
