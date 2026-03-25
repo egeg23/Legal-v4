@@ -258,22 +258,32 @@
         }
         
         function updateCaseStatus(caseId, data) {
+            console.log('Updating case', caseId, 'with data:', data);
             caseStates[caseId] = data;
             
             const card = document.getElementById('case-' + caseId);
             const statusEl = document.getElementById('status-' + caseId);
             const actionsEl = document.getElementById('actions-' + caseId);
             
-            if (!card || !statusEl) return;
+            if (!card || !statusEl) {
+                console.error('Card or status element not found for case', caseId);
+                return;
+            }
             
             if (data.status === 'completed') {
+                console.log('Case', caseId, 'is completed - showing download button');
                 card.className = 'case-card completed';
                 statusEl.innerHTML = '✅ Готово';
-                actionsEl.innerHTML = `
-                    <button onclick="downloadDocument(${caseId})" class="download-btn">
-                        📥 Скачать документ
-                    </button>
-                `;
+                if (actionsEl) {
+                    actionsEl.innerHTML = `
+                        <button onclick="downloadDocument(${caseId})" class="download-btn" id="btn-${caseId}">
+                            📥 Скачать документ
+                        </button>
+                    `;
+                    console.log('Download button added for case', caseId);
+                } else {
+                    console.error('actionsEl not found for case', caseId);
+                }
             } else if (data.status === 'failed') {
                 card.className = 'case-card failed';
                 statusEl.innerHTML = '❌ Ошибка';
@@ -290,14 +300,19 @@
         
         async function downloadDocument(caseId) {
             try {
-                const btn = event.target;
-                btn.textContent = '⏳ Загрузка...';
-                btn.disabled = true;
+                const btn = event.currentTarget || event.target;
+                if (btn) {
+                    btn.textContent = '⏳ Загрузка...';
+                    btn.disabled = true;
+                }
                 
+                console.log('Downloading case', caseId, 'with token', token ? 'present' : 'missing');
                 const response = await fetch(`${API_BASE}/download/${caseId}?token=${token}`);
                 
                 if (!response.ok) {
-                    throw new Error('Download failed: ' + response.status);
+                    const errorText = await response.text();
+                    console.error('Download error response:', errorText);
+                    throw new Error('Download failed: ' + response.status + ' - ' + errorText);
                 }
                 
                 const blob = await response.blob();

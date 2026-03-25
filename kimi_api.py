@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 # Конфигурация API
 API_BASE_URL = "https://api.moonshot.ai/v1"
 API_KEY = "sk-kUpcQ7a7hqbcXEeJSGbV2n9AGzyM4ECHrr5o7bA8R6lGGzTn"
-DEFAULT_MODEL = "kimi-k2.5"
+DEFAULT_MODEL = "kimi-k2-turbo-preview"
 MAX_RETRIES = 3
 TIMEOUT = 90
 
