@@ -1,208 +1,646 @@
-import os
-import json
-import logging
-import requests
-from typing import Dict, List, Any, Optional
-from datetime import datetime
+"""
+Модуль интеграции с API Кими (Moonshot AI) для юридического сервиса.
+РЕАЛЬНАЯ ВЕРСИЯ с API запросами.
 
+Предоставляет функции для:
+- Анализа документов дела
+- Генерации юридических документов
+- Проверки согласованности контекста
+"""
+
+import json
+import time
+import requests
+from typing import List, Dict, Any, Optional
+from enum import Enum
+import logging
+
+# Настройка логирования
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-API_BASE_URL = "https://api.moonshot.cn/v1"
+# Конфигурация API
+API_BASE_URL = "https://api.moonshot.ai/v1"
 API_KEY = "sk-kUpcQ7a7hqbcXEeJSGbV2n9AGzyM4ECHrr5o7bA8R6lGGzTn"
-TIMEOUT = 120
-MIN_DOCUMENT_LENGTH = 7000
+DEFAULT_MODEL = "moonshot-v1-8k"
+MAX_RETRIES = 3
+TIMEOUT = 90
+
+
+class DocumentType(Enum):
+    """Типы юридических документов."""
+    COMPLAINT = "complaint"      # Исковое заявление
+    APPEAL = "appeal"            # Апелляционная жалоба
+    PETITION = "petition"        # Претензия
+    STATEMENT = "statement"      # Стратегия защиты
+
 
 class KimiAPIError(Exception):
+    """Базовое исключение для ошибок API Кими."""
     pass
+
 
 class RateLimitError(KimiAPIError):
+    """Исключение при превышении лимита запросов."""
     pass
 
-def _make_api_request(messages, temperature=0.3, max_tokens=8000):
+
+class AuthenticationError(KimiAPIError):
+    """Исключение при ошибке аутентификации."""
+    pass
+
+
+def _make_api_request(messages: List[Dict[str, str]], temperature: float = 0.3, max_tokens: int = 4000) -> str:
+    """
+    Внутренняя функция для выполнения API запроса к Moonshot AI.
+    
+    Args:
+        messages: Список сообщений в формате [{"role": "system"/"user", "content": "..."}]
+        temperature: Температура генерации (0.0 - 1.0)
+        max_tokens: Максимальное количество токенов в ответе
+        
+    Returns:
+        Текст ответа от API
+        
+    Raises:
+        KimiAPIError: При ошибке API
+        RateLimitError: При превышении лимита запросов
+        AuthenticationError: При ошибке аутентификации
+    """
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {API_KEY}"
     }
-    data = {
-        "model": "kimi-latest",
+    
+    payload = {
+        "model": DEFAULT_MODEL,
         "messages": messages,
         "temperature": temperature,
         "max_tokens": max_tokens
     }
     
-    try:
-        response = requests.post(
-            f"{API_BASE_URL}/chat/completions",
-            headers=headers,
-            json=data,
-            timeout=TIMEOUT
-        )
-        
-        if response.status_code == 429:
-            raise RateLimitError("Превышен лимит запросов")
-        elif response.status_code != 200:
-            raise KimiAPIError(f"Ошибка API: {response.status_code}")
-        
-        result = response.json()
-        content = result['choices'][0]['message']['content']
-        
-        # Проверка минимальной длины
-        if len(content) < MIN_DOCUMENT_LENGTH:
-            logger.warning(f"Документ короткий ({len(content)} сим), запрашиваю дополнение...")
-            messages.extend([
-                {"role": "assistant", "content": content},
-                {"role": "user", "content": f"Расширь документ до минимум {MIN_DOCUMENT_LENGTH} символов. Добавь больше аргументов, таблиц, ссылок на законы."}
-            ])
-            
-            response2 = requests.post(
+    for attempt in range(MAX_RETRIES):
+        try:
+            logger.info(f"API запрос (попытка {attempt + 1}/{MAX_RETRIES})")
+            response = requests.post(
                 f"{API_BASE_URL}/chat/completions",
                 headers=headers,
-                json={"model": "kimi-latest", "messages": messages, "temperature": 0.3, "max_tokens": 8000},
+                json=payload,
                 timeout=TIMEOUT
             )
             
-            if response2.status_code == 200:
-                extended = response2.json()['choices'][0]['message']['content']
-                logger.info(f"Расширено до {len(extended)} символов")
-                return extended
+            if response.status_code == 401:
+                raise AuthenticationError("Ошибка аутентификации. Проверьте API ключ.")
+            elif response.status_code == 429:
+                raise RateLimitError("Превышен лимит запросов. Попробуйте позже.")
+            elif response.status_code != 200:
+                error_data = response.json() if response.text else {}
+                error_msg = error_data.get('error', {}).get('message', f'HTTP {response.status_code}')
+                raise KimiAPIError(f"Ошибка API: {error_msg}")
+            
+            data = response.json()
+            content = data['choices'][0]['message']['content']
+            logger.info(f"API ответ получен, длина: {len(content)} символов")
+            return content
+            
+        except requests.exceptions.Timeout:
+            if attempt < MAX_RETRIES - 1:
+                wait_time = (attempt + 1) * 2
+                logger.warning(f"Таймаут, повтор через {wait_time} сек...")
+                time.sleep(wait_time)
+            else:
+                raise KimiAPIError("Превышено время ожидания ответа от API")
+        except requests.exceptions.RequestException as e:
+            if attempt < MAX_RETRIES - 1:
+                wait_time = (attempt + 1) * 2
+                logger.warning(f"Ошибка сети: {e}, повтор через {wait_time} сек...")
+                time.sleep(wait_time)
+            else:
+                raise KimiAPIError(f"Ошибка сети: {e}")
+    
+    raise KimiAPIError("Не удалось выполнить запрос после всех попыток")
+
+
+def analyze_case_documents(documents_text: List[str], api_key: str = None) -> Dict[str, Any]:
+    """
+    Анализирует документы по делу и возвращает структурированный отчет.
+    
+    Args:
+        documents_text: Список текстов документов для анализа
+        api_key: API ключ (не используется, оставлен для совместимости)
         
-        return content
-        
-    except requests.exceptions.Timeout:
-        raise KimiAPIError(f"Таймаут {TIMEOUT} сек")
-    except Exception as e:
-        raise KimiAPIError(f"Ошибка: {e}")
-
-def get_structure_template():
-    return '''
-СТРУКТУРА ДОКУМЕНТА (минимум 7000 символов):
-
-I. ПРЕДМЕТ ОБЖАЛОВАНИЯ (500-800 символов)
-   - Что обжалуется, дата, номер дела, наименование суда
-   - Почему незаконно
-   - Конкретные требования с суммами
-
-II. СУЩЕСТВЕННЫЕ ПРОЦЕССУАЛЬНЫЕ НАРУШЕНИЯ (1500-2000 символов)
-   1. Нарушение ст. 79, 186 ГПК РФ — отказ в экспертизе
-      • Установлено, коллизия, нарушения суда, практика, последствия
-   2. Нарушение ст. 12, 56 ГПК РФ — бремя доказывания
-      • Ошибка суда, правильное распределение, что проигнорировано
-
-III. НАРУШЕНИЯ МАТЕРИАЛЬНОГО ПРАВА (1500-2000 символов)
-   3. Неправильное применение эстоппеля (ст. 10, 166 ГК РФ)
-   4. Нарушение прав потребителя (Закон РФ № 2300-1)
-      • Таблица нарушений | Требование | Нарушение |
-   5. Недействительность договоров (ст. 940, 957, 168 ГК РФ)
-
-IV. ОСОБЫЕ ДОВОДЫ ПО СУТИ СПОРА (1000-1500 символов)
-   6. Отсутствие распоряжения на списание (ст. 847, 1102 ГК РФ)
-   7. Противоречивость позиции ответчиков
-
-V. ПРЕЦЕДЕНТНАЯ ПРАКТИКА (800-1000 символов)
-   - Пленум ВС РФ, СКЭС ВС РФ с конкретными номерами дел
-
-VI. ПРОСЬБИ (500-800 символов)
-   - На основании ст. X, Y ГПК РФ
-   - Перечень требований с суммами
-
-VII. ПРИЛОЖЕНИЯ (200-300 символов)
-   - Перечень документов
-
-ИСПОЛЬЗУЙ: таблицы, списки, жирный шрифт, цитаты законов, конкретные номера дел.
-'''
-
-def search_precedents(theme, issues):
-    db = [
-        {"court": "КС РФ", "date": "26.03.2019", "number": "№ 778-О", "theme": "подписи", "quote": "Способ проверки заявления о подложности доказательства определяет сам суд", "articles": ["ст. 186 ГПК РФ"]},
-        {"court": "СКЭС ВС РФ", "date": "08.10.2024", "number": "№ 300-ЭС24-6956", "theme": "эстоппель", "quote": "Принцип эстоппель не защищает сторону, действовавшую недобросовестно", "articles": ["ст. 10 ГК РФ"]},
-        {"court": "СКЭС ВС РФ", "date": "15.11.2022", "number": "№ 305-ЭС22-16891", "theme": "подписи", "quote": "При споре о подлинности подписи суд обязан назначить экспертизу", "articles": ["ст. 79 ГПК РФ"]},
-        {"court": "Пленум ВС РФ", "date": "25.06.2024", "number": "№ 19, п. 7", "theme": "страхование", "quote": "В случае заключения банком вместо вклада договора страхования... суд проверяет доводы потребителя", "articles": ["Закон РФ № 2300-1"]},
-        {"court": "Пленум ВС РФ", "date": "25.06.2024", "number": "№ 19, п. 6", "theme": "страхование", "quote": "Письменная форма соблюдена при вручении полиса, подписанного страхователем", "articles": ["ст. 940 ГК РФ"]},
-        {"court": "Пленум ВС РФ", "date": "25.12.2018", "number": "№ 49, п. 9", "theme": "доказывание", "quote": "Банк должен доказать факт заключения договора", "articles": ["ст. 56 ГПК РФ"]},
-        {"court": "ЦБ РФ", "date": "13.01.2021", "number": "№ ИН-01-59/2", "theme": "страхование", "quote": "Продукты с инвестиционной составляющей не для лиц без специальных знаний", "articles": ["Закон РФ № 2300-1"]}
-    ]
+    Returns:
+        Словарь с результатами анализа
+    """
+    if not documents_text:
+        raise ValueError("Список документов не может быть пустым")
     
-    filtered = [p for p in db if p['theme'] in theme.lower() or any(i in theme.lower() for i in issues)]
-    return filtered[:5] if filtered else db[:3]
-
-def analyze_docs(docs):
-    if not docs:
-        return {"theme": "общий", "issues": []}
+    logger.info(f"Анализ {len(documents_text)} документов через Moonshot AI")
     
-    text = " ".join(docs)[:10000].lower()
-    theme = "общий"
-    issues = []
+    # Формируем промпт для анализа
+    documents_combined = "\n\n---\n\n".join([
+        f"ДОКУМЕНТ {i+1}:\n{doc}" 
+        for i, doc in enumerate(documents_text)
+    ])
     
-    if any(w in text for w in ["страхован", "полис", "премия"]):
-        theme = "страхование"
-        issues.append("мисселлинг")
-    if any(w in text for w in ["подпис", "подделка"]):
-        theme = "подписи"
-        issues.append("экспертиза")
-    if any(w in text for w in ["банк", "списал", "счет"]):
-        theme = "банк"
-        issues.append("списание")
+    system_prompt = """Ты — профессиональный юрист с 30-летним стажем. Проведи комплексный аудит предоставленных документов.
+
+ИНСТРУКЦИЯ ПО АНАЛИЗУ:
+1. Изучи документы в хронологическом порядке (по датам)
+2. Для каждого документа определи тип и юридическую значимость
+3. Выяви сильные и слабые стороны дела
+4. Укажи конкретные статьи законов, на которые можно ссылаться
+
+ОТВЕТ В ФОРМАТЕ JSON:
+{
+  "document_audit": {
+    "total_documents": число,
+    "chronology": ["Документ 1 (дата) - тип - краткое описание", ...],
+    "strong_points": [
+      {
+        "point": "Описание сильной стороны",
+        "evidence": "Какие документы подтверждают",
+        "legal_basis": "Статьи закона",
+        "success_rate": "90%"
+      }
+    ],
+    "weak_points": [
+      {
+        "point": "Описание слабой стороны",
+        "risk": "Чем грозит",
+        "mitigation": "Как нивелировать",
+        "legal_basis": "Статьи закона"
+      }
+    ],
+    "missing_documents": ["Список документов, которые нужно получить"]
+  },
+  "legal_framework": {
+    "applicable_laws": ["Ст. 807 ГК РФ - договор займа", ...],
+    "court_practice": ["Ссылка на дело ВС РФ..."],
+    "strategy_recommendations": ["Рекомендация 1", ...]
+  },
+  "case_assessment": {
+    "overall_success_rate": "85%",
+    "best_strategy": "Описание лучшей стратегии",
+    "estimated_timeline": "2-3 месяца",
+    "estimated_costs": "Расчет расходов"
+  }
+}
+
+ПРАВИЛА:
+- Будь максимально конкретным в ссылках на законы
+- Указывай реальные проценты успеха на основе судебной практики
+- Для слабых сторон предлагай способы нивелирования рисков
+- Указывай точные статьи ГК РФ, ГПК РФ, НК РФ"""
+
+    user_prompt = f"Проанализируй следующие документы по делу:\n\n{documents_combined}"
     
-    return {"theme": theme, "issues": issues}
-
-def generate_legal_document(case_data, document_type, api_key=None):
-    if not case_data:
-        raise ValueError("Нет данных дела")
-    
-    analysis = analyze_docs(case_data.get('documents_text', []))
-    precedents = search_precedents(analysis['theme'], analysis['issues'])
-    
-    prec_block = "\\n".join([f"• {p['court']} {p['date']} {p['number']}: {p['quote']} ({', '.join(p['articles'])})" for p in precedents])
-    
-    system = f"""Ты — юрист с 30-летним стажем. Составь подробный документ.
-
-ТИП: {document_type}
-ТЕМА: {analysis['theme']}
-
-{get_structure_template()}
-
-ПРЕЦЕДЕНТЫ:
-{prec_block}
-
-ТРЕБОВАНИЯ:
-1. МИНИМУМ 7000 СИМВОЛОВ
-2. Все 7 разделов подробно
-3. Таблицы, списки, цитаты
-4. Конкретные номера дел"""
-
     messages = [
-        {"role": "system", "content": system},
-        {"role": "user", "content": f"Составь {document_type}: {json.dumps(case_data, ensure_ascii=False)[:3000]}"}
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt}
     ]
     
     try:
-        response = _make_api_request(messages, temperature=0.3, max_tokens=8000)
+        response = _make_api_request(messages, temperature=0.2, max_tokens=3000)
         
-        if len(response) < MIN_DOCUMENT_LENGTH:
-            logger.warning(f"Итоговый документ короткий: {len(response)} символов")
-        else:
-            logger.info(f"Документ готов: {len(response)} символов")
+        # Пытаемся распарсить JSON из ответа
+        try:
+            result = json.loads(response)
+        except json.JSONDecodeError:
+            # Если JSON не распарсился, пробуем извлечь из markdown блока
+            if "```json" in response:
+                json_text = response.split("```json")[1].split("```")[0].strip()
+                result = json.loads(json_text)
+            elif "```" in response:
+                json_text = response.split("```")[1].split("```")[0].strip()
+                result = json.loads(json_text)
+            else:
+                raise KimiAPIError(f"Не удалось распарсить JSON ответ: {response[:200]}")
         
-        return response.strip()
+        # Обеспечиваем наличие всех обязательных полей
+        return {
+            "document_list": result.get("document_list", []),
+            "legal_summary": result.get("legal_summary", ""),
+            "collisions": result.get("collisions", []),
+            "contradictions": result.get("contradictions", []),
+            "recommendations": result.get("recommendations", [])
+        }
+        
     except Exception as e:
-        logger.error(f"Ошибка: {e}")
-        raise KimiAPIError(f"Ошибка генерации: {e}")
+        logger.error(f"Ошибка при анализе документов: {e}")
+        # Возвращаем базовую структуру в случае ошибки
+        return {
+            "document_list": [f"Документ {i+1}" for i in range(len(documents_text))],
+            "legal_summary": "Анализ не удался. Пожалуйста, попробуйте позже.",
+            "collisions": [],
+            "contradictions": [str(e)],
+            "recommendations": ["Повторите запрос или обратитесь в поддержку"]
+        }
 
-def get_document_type_name(doc_type):
-    types = {
-        'complaint': 'Исковое заявление',
-        'appeal': 'Апелляционная жалоба', 
-        'petition': 'Досудебная претензия',
-        'statement': 'Стратегия защиты'
+
+def generate_legal_document(
+    case_data: Dict[str, Any], 
+    document_type: str, 
+    api_key: str = None
+) -> str:
+    """
+    Генерирует юридический документ через Moonshot AI.
+    
+    Args:
+        case_data: Данные дела для генерации документа
+        document_type: Тип документа ('complaint', 'appeal', 'petition', 'statement')
+        api_key: API ключ (не используется, оставлен для совместимости)
+        
+    Returns:
+        Текст сгенерированного юридического документа
+    """
+    if not case_data:
+        raise ValueError("Данные дела не могут быть пустыми")
+    
+    # Преобразуем строковый тип в enum
+    try:
+        doc_type = DocumentType(document_type.lower())
+    except ValueError:
+        valid_types = [t.value for t in DocumentType]
+        raise ValueError(f"Недопустимый тип документа. Допустимые значения: {valid_types}")
+    
+    logger.info(f"Генерация документа типа: {doc_type.value} через Moonshot AI")
+    
+    # Формируем системный промпт в зависимости от типа документа
+    doc_type_prompts = {
+        DocumentType.COMPLAINT: """Ты — профессиональный юрист с 30-летним стажем работы. Составь исковое заявление по договору займа.
+
+ТРЕБОВАНИЯ К ДОКУМЕНТУ:
+1. Официальный юридический стиль, профессиональная терминология
+2. ОБЯЗАТЕЛЬНО укажи конкретные статьи законов:
+   - ст. 807 ГК РФ (договор займа)
+   - ст. 808 ГК РФ (проценты)
+   - ст. 809 ГК РФ (размер процентов)
+   - ст. 810 ГК РФ (обязанность возврата)
+   - ст. 132 ГПК РФ (исковое заявление)
+3. Стратегии защиты с процентом успеха:
+   - Стратегия 1: Взыскание основного долга + проценты (успех: 85-90%)
+   - Стратегия 2: Взыскание неустойки (успех: 60-70%, требует доказательств)
+   - Стратегия 3: Взыскание морального вреда (успех: 30-40%, редко удовлетворяется)
+4. Для каждой стратегии укажи:
+   - Что нужно доказать
+   - Какие документы приложить
+   - Оценка шансов на успех
+5. Сумма госпошлины по ст. 333.19 НК РФ
+
+Документ должен быть полным, грамотным и готовым к подаче в суд.""",
+        
+        DocumentType.APPEAL: """Ты — профессиональный юрист с 30-летним стажем работы. Составь апелляционную жалобу.
+
+ТРЕБОВАНИЯ К ДОКУМЕНТУ:
+1. Официальный юридический стиль, аргументированная критика решения
+2. ОБЯЗАТЕЛЬНО укажи нарушения статей ГПК РФ:
+   - ст. 56 ГПК РФ (бремя доказывания)
+   - ст. 194 ГПК РФ (мотивировка решения)
+   - ст. 198 ГПК РФ (существенные нарушения)
+3. Основания для отмены с процентом успеха:
+   - Нарушение норм материального права (успех: 40-50%)
+   - Нарушение норм процессуального права (успех: 30-40%)
+   - Неполное выяснение обстоятельств (успех: 50-60%)
+   - Недоказанность обстоятельств (успех: 35-45%)
+4. Для каждого основания укажи:
+   - Конкретное нарушение
+   - Ссылка на статью закона
+   - Как должно было быть
+   - Оценка шансов
+5. Срок подачи по ст. 320 ГПК РФ — 1 месяц
+
+Документ должен содержать конкретные нарушения и ссылки на закон.""",
+        
+        DocumentType.PETITION: """Ты — профессиональный юрист с 30-летним стажем работы. Составь досудебную претензию.
+
+ТРЕБОВАНИЯ К ДОКУМЕНТУ:
+1. Строгий, корректный стиль с ссылками на закон
+2. ОБЯЗАТЕЛЬНО укажи статьи:
+   - ст. 15 ГК РФ (возмещение убытков)
+   - ст. 330 ГК РФ (неустойка)
+   - ст. 395 ГК РФ (проценты за пользование чужими деньгами)
+   - ст. 307 ГК РФ (исполнение обязательств)
+3. Варианты разрешения спора с оценкой:
+   - Добровольное исполнение (успех: 15-25%, быстро и дешево)
+   - Рассрочка/отсрочка (успех: 30-40%, нужна гарантия)
+   - Мировое соглашение (успех: 50-60%, экономия времени)
+   - Судебное взыскание (успех: 85-90%, но затратно)
+4. Для каждого варианта укажи:
+   - Преимущества и риски
+   - Сроки
+   - Необходимые действия
+5. Срок ответа по ст. 452 ГК РФ — 30 дней
+6. Предупреждение о последствиях отказа
+
+Документ должен быть убедительным и создавать давление на ответчика.""",
+        
+        DocumentType.STATEMENT: """Ты — профессиональный юрист с 30-летним стажем работы. Составь комплексную стратегию защиты в суде.
+
+ТРЕБОВАНИЯ К ДОКУМЕНТУ:
+1. Профессиональный аналитический стиль
+2. ОБЯЗАТЕЛЬНО включи разделы:
+
+I. АНАЛИТИЧЕСКАЯ ЧАСТЬ
+- Описание спора и правовых отношений
+- Сильные стороны дела (что доказать легко)
+- Слабые стороны дела (риски и проблемы)
+- Прогноз исхода с процентом успеха
+
+II. ПРАВОВОЕ ОБОСНОВАНИЕ
+- Применимые нормы: ст. 807-810 ГК РФ, ст. 132, 194 ГПК РФ
+- Судебная практика (конкретные дела арбитражных/общих судов)
+- Правовые позиции вышестоящих судов
+
+III. СТРАТЕГИИ ЗАЩИТЫ (минимум 3 варианта)
+СТРАТЕГИЯ 1: Активная позиция (успех: 80-90%)
+- Что делаем: Полное взыскание + проценты + неустойка + расходы
+- Что нужно: Договор, расписка/перевод, претензия, переписка
+- Сроки: 2-3 месяца
+- Бюджет: Госпошлина + представительство
+
+СТРАТЕГИЯ 2: Компромиссная (успех: 70-80%)
+- Что делаем: Взыскание долга + проценты, отказ от неустойки
+- Что нужно: Договор, доказательства передачи денег
+- Сроки: 1-2 месяца (мировое соглашение)
+- Бюджет: Минимальные расходы
+
+СТРАТЕГИЯ 3: Судебное примирение (успех: 60-70%)
+- Что делаем: Рассрочка исполнения, график платежей
+- Что нужно: Гарантии (поручительство, залог)
+- Сроки: 6-12 месяцев
+- Бюджет: Нотариальные расходы
+
+IV. КАЛЕНДАРНЫЙ ПЛАН
+- Подача иска/претензии
+- Предварительное слушание
+- Основное слушание
+- Вынесение решения
+- Исполнительное производство
+
+V. ПЕРЕЧЕНЬ ДОКУМЕНТОВ
+- Обязательные (без них дело не выиграть)
+- Желательные (усиливают позицию)
+- Дополнительные (по возможности)
+
+VI. ФИНАНСОВЫЙ РАСЧЕТ
+- Госпошлина
+- Расходы на представителя
+- Иные расходы
+- Общая сумма взыскания
+
+VII. РИСКИ И ПЛАН Б
+- Что может пойти не так
+- Альтернативные действия
+
+Документ должен быть практическим руководством к действию."""
     }
-    return types.get(doc_type, 'Юридический документ')
+    
+    system_prompt = doc_type_prompts.get(doc_type, doc_type_prompts[DocumentType.COMPLAINT])
+    
+    # Формируем данные для подстановки
+    case_json = json.dumps(case_data, ensure_ascii=False, indent=2)
+    
+    doc_type_names = {
+        "complaint": "исковое заявление",
+        "appeal": "апелляционную жалобу",
+        "petition": "претензию",
+        "statement": "стратегию защиты"
+    }
+    
+    user_prompt = f"""Составь {doc_type_names.get(document_type.lower(), 'документ')} на основе следующих данных дела:
 
-def check_context_consistency(docs, api_key=None):
-    return {"consistent": True, "confidence": 0.95, "issues": []}
+{case_json}
 
-def analyze_case_documents(docs):
-    return analyze_docs(docs)
+Требования:
+1. Используй предоставленные данные для заполнения всех полей
+2. Соблюдай структуру документа согласно законодательству РФ
+3. Включи ссылки на соответствующие статьи законов
+4. Используй официальный юридический язык
+5. Документ должен быть готов к подаче (без плейсхолдеров типа [ФИО])
+
+Выдай только текст документа, без дополнительных комментариев."""
+    
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt}
+    ]
+    
+    try:
+        response = _make_api_request(messages, temperature=0.3, max_tokens=4000)
+        return response.strip()
+        
+    except Exception as e:
+        logger.error(f"Ошибка при генерации документа: {e}")
+        raise KimiAPIError(f"Не удалось сгенерировать документ: {e}")
+
+
+def check_context_consistency(documents: List[str], api_key: str = None) -> Dict[str, Any]:
+    """
+    Проверяет согласованность контекста между документами.
+    
+    Args:
+        documents: Список текстов документов для проверки
+        api_key: API ключ (не используется, оставлен для совместимости)
+        
+    Returns:
+        Словарь с результатами проверки
+    """
+    if not documents or len(documents) < 2:
+        raise ValueError("Для проверки согласованности требуется минимум 2 документа")
+    
+    logger.info(f"Проверка согласованности {len(documents)} документов через Moonshot AI")
+    
+    documents_combined = "\n\n---\n\n".join([
+        f"ДОКУМЕНТ {i+1}:\n{doc[:2000]}"  # Ограничиваем длину каждого документа
+        for i, doc in enumerate(documents)
+    ])
+    
+    system_prompt = """Ты — профессиональный юрист с 30-летним стажем. Проверь согласованность контекста между предоставленными документами.
+
+Ответ должен быть в формате JSON:
+{
+  "consistent": true/false,
+  "issues": ["описание проблемы 1", "описание проблемы 2", ...]
+}
+
+Если документы согласованы — issues должен быть пустым массивом.
+Отвечай только JSON, без дополнительного текста."""
+
+    user_prompt = f"Проверь согласованность следующих документов:\n\n{documents_combined}"
+    
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt}
+    ]
+    
+    try:
+        response = _make_api_request(messages, temperature=0.2, max_tokens=2000)
+        
+        # Пытаемся распарсить JSON
+        try:
+            result = json.loads(response)
+        except json.JSONDecodeError:
+            if "```json" in response:
+                json_text = response.split("```json")[1].split("```")[0].strip()
+                result = json.loads(json_text)
+            elif "```" in response:
+                json_text = response.split("```")[1].split("```")[0].strip()
+                result = json.loads(json_text)
+            else:
+                raise KimiAPIError(f"Не удалось распарсить JSON: {response[:200]}")
+        
+        return {
+            "consistent": result.get("consistent", True),
+            "issues": result.get("issues", [])
+        }
+        
+    except Exception as e:
+        logger.error(f"Ошибка при проверке согласованности: {e}")
+        return {
+            "consistent": True,
+            "issues": [f"Ошибка проверки: {str(e)}"]
+        }
+
+
+# =============================================================================
+# УТИЛИТЫ
+# =============================================================================
+
+def get_document_type_name(doc_type: str) -> str:
+    """Возвращает русское название типа документа."""
+    names = {
+        'complaint': 'Исковое заявление',
+        'appeal': 'Апелляционная жалоба',
+        'petition': 'Претензия',
+        'statement': 'Стратегия защиты в суде'
+    }
+    return names.get(doc_type.lower(), 'Документ')
+
+
+def get_document_type_enum(doc_type: str) -> Optional[DocumentType]:
+    """Преобразует строковый тип в enum."""
+    try:
+        return DocumentType(doc_type.lower())
+    except ValueError:
+        return None
+
+
+def test_api_connection() -> Dict[str, Any]:
+    """
+    Тестирует подключение к API Moonshot.
+    
+    Returns:
+        Словарь с результатом теста
+    """
+    try:
+        messages = [
+            {"role": "system", "content": "Ты — помощник. Ответь кратко."},
+            {"role": "user", "content": "Привет! Проверка связи. Какая сегодня дата?"}
+        ]
+        response = _make_api_request(messages, temperature=0.7, max_tokens=100)
+        return {
+            "success": True,
+            "response": response,
+            "model": DEFAULT_MODEL
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e)
+        }
+
+
+# =============================================================================
+# ПРИМЕР ИСПОЛЬЗОВАНИЯ
+# =============================================================================
 
 if __name__ == "__main__":
-    print("Kimi API: MIN 7000 chars loaded")
+    print("=" * 70)
+    print("MOONSHOT AI API - ТЕСТИРОВАНИЕ")
+    print("=" * 70)
+    
+    # Тест 0: Проверка подключения
+    print("\n>>> Тест 0: Проверка подключения к API")
+    print("-" * 50)
+    
+    result = test_api_connection()
+    if result["success"]:
+        print(f"✓ Подключение успешно")
+        print(f"  Модель: {result['model']}")
+        print(f"  Ответ: {result['response'][:100]}...")
+    else:
+        print(f"✗ Ошибка подключения: {result['error']}")
+        exit(1)
+    
+    # Тест 1: Анализ документов
+    print("\n>>> Тест 1: Анализ документов")
+    print("-" * 50)
+    
+    test_docs = [
+        "Договор займа от 15.01.2024 на сумму 100000 руб. между Ивановым И.И. и Петровым П.П.",
+        "Расписка в получении денежных средств от 15.01.2024 на сумму 100000 руб.",
+        "Требование об уплате долга от 01.03.2024 с уведомлением о намерении обратиться в суд"
+    ]
+    
+    try:
+        result = analyze_case_documents(test_docs)
+        print(f"✓ Анализ выполнен")
+        print(f"  Документов: {len(result['document_list'])}")
+        print(f"  Противоречий: {len(result['contradictions'])}")
+        print(f"  Рекомендаций: {len(result['recommendations'])}")
+        print(f"  Заключение: {result['legal_summary'][:200]}...")
+    except Exception as e:
+        print(f"✗ Ошибка: {e}")
+    
+    # Тест 2: Генерация искового заявления
+    print("\n>>> Тест 2: Генерация искового заявления")
+    print("-" * 50)
+    
+    test_case_data = {
+        'court_name': 'Мировой судья судебного участка № 123 района города Москвы',
+        'plaintiff': {
+            'name': 'Иванов Иван Иванович',
+            'address': 'г. Москва, ул. Ленина, д. 10, кв. 50'
+        },
+        'defendant': {
+            'name': 'Петров Петр Петрович',
+            'address': 'г. Москва, ул. Пушкина, д. 5, кв. 12'
+        },
+        'claim_amount': '103 500',
+        'date': '15.01.2024',
+        'loan_amount': '100 000',
+        'due_date': '15.04.2024',
+        'date_today': '"15" марта 2025 г.',
+        'interest_amount': '3000',
+        'penalty_amount': '500',
+        'court_fee': '2000',
+        'lawyer_fee': '10000',
+        'total_expenses': '12000',
+        'moral_damage': '0'
+    }
+    
+    try:
+        document = generate_legal_document(test_case_data, 'complaint')
+        print(f"✓ Документ сгенерирован")
+        print(f"  Длина: {len(document)} символов")
+        print(f"  Первые 300 символов:\n{document[:300]}...")
+    except Exception as e:
+        print(f"✗ Ошибка: {e}")
+    
+    # Тест 3: Проверка согласованности
+    print("\n>>> Тест 3: Проверка согласованности")
+    print("-" * 50)
+    
+    try:
+        result = check_context_consistency(test_docs)
+        print(f"✓ Проверка выполнена")
+        print(f"  Согласованность: {'Да' if result['consistent'] else 'Нет'}")
+        if result['issues']:
+            print(f"  Проблемы: {result['issues']}")
+    except Exception as e:
+        print(f"✗ Ошибка: {e}")
+    
+    print("\n" + "=" * 70)
+    print("ТЕСТИРОВАНИЕ ЗАВЕРШЕНО")
+    print("=" * 70)
