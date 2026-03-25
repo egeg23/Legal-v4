@@ -636,12 +636,24 @@ def upload_documents():
     
     if 'files' in request.files:
         files = request.files.getlist('files')
-        for file in files:
+        logger.info(f'Processing {len(files)} files...')
+        for i, file in enumerate(files):
             if file.filename:
-                filepath = save_uploaded_file(file, user.id, case.id)
-                if filepath:
-                    case.add_document(filepath)
-                    uploaded_files.append(os.path.basename(filepath))
+                logger.info(f'Processing file {i+1}/{len(files)}: {file.filename}')
+                try:
+                    filepath = save_uploaded_file(file, user.id, case.id)
+                    if filepath:
+                        case.add_document(filepath)
+                        uploaded_files.append(os.path.basename(filepath))
+                        logger.info(f'File {i+1} saved: {filepath}')
+                    else:
+                        logger.warning(f'File {i+1} failed to save')
+                except Exception as e:
+                    logger.error(f'Error processing file {i+1}: {e}')
+                    import traceback
+                    logger.error(traceback.format_exc())
+            else:
+                logger.warning(f'File {i+1} has no filename')
     
     db.session.commit()
     
