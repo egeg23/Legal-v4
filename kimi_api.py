@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 # Конфигурация API
 API_BASE_URL = "https://api.moonshot.ai/v1"
 API_KEY = "sk-kUpcQ7a7hqbcXEeJSGbV2n9AGzyM4ECHrr5o7bA8R6lGGzTn"
-DEFAULT_MODEL = "moonshot-v1-128k"
+DEFAULT_MODEL = "kimi-k2.5"
 MAX_RETRIES = 3
 TIMEOUT = 90
 
@@ -71,6 +71,10 @@ def _make_api_request(messages: List[Dict[str, str]], temperature: float = 0.3, 
         "Content-Type": "application/json",
         "Authorization": f"Bearer {API_KEY}"
     }
+    
+    # K2.5 models require temperature=1
+    if "kimi-k2" in DEFAULT_MODEL:
+        temperature = 1
     
     payload = {
         "model": DEFAULT_MODEL,
