@@ -340,29 +340,80 @@
         
         // Download all completed documents
         async function downloadAll() {
+            console.log('downloadAll called, cases:', cases);
+            console.log('caseStates:', caseStates);
+            
             const completedCases = cases.filter(c => caseStates[c.id]?.status === 'completed');
-            if (completedCases.length === 0) return;
+            console.log('Completed cases:', completedCases);
+            
+            if (completedCases.length === 0) {
+                alert('Нет готовых документов для скачивания');
+                return;
+            }
+            
+            // Show loading state
+            const btn = document.querySelector('#actionButtons button');
+            if (btn) {
+                btn.textContent = '⏳ Скачивание...';
+                btn.disabled = true;
+            }
             
             for (let i = 0; i < completedCases.length; i++) {
                 const c = completedCases[i];
                 try {
+                    console.log(`Downloading case ${c.id}...`);
                     const response = await fetch(`${API_BASE}/download/${c.id}?token=${token}`);
-                    if (!response.ok) continue;
+                    
+                    if (!response.ok) {
+                        console.error(`Download failed for case ${c.id}:`, response.status);
+                        continue;
+                    }
                     
                     const blob = await response.blob();
                     const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `${c.type || 'document'}_case_${c.id}.docx`;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    window.URL.revokeObjectURL(url);
                     
-                    await new Promise(r => setTimeout(r, 500)); // Delay between downloads
+                    // Universal download method for mobile + desktop
+                    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+                    const filename = `${c.type || 'document'}_case_${c.id}.docx`;
+                    
+                    if (isMobile) {
+                        // Mobile: use location.href with data URI or window.open
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            const dataUrl = e.target.result;
+                            const link = document.createElement('a');
+                            link.href = dataUrl;
+                            link.download = filename;
+                            link.style.display = 'none';
+                            document.body.appendChild(link);
+                            link.click();
+                            setTimeout(() => {
+                                document.body.removeChild(link);
+                                window.URL.revokeObjectURL(url);
+                            }, 100);
+                        };
+                        reader.readAsDataURL(blob);
+                    } else {
+                        // Desktop: standard method
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = filename;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        window.URL.revokeObjectURL(url);
+                    }
+                    
+                    await new Promise(r => setTimeout(r, 800)); // Delay between downloads
                 } catch (e) {
                     console.error('Download error for case', c.id, e);
                 }
+            }
+            
+            // Restore button
+            if (btn) {
+                btn.textContent = '📦 Скачать все документы';
+                btn.disabled = false;
             }
         }
         
