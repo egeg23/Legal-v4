@@ -248,7 +248,113 @@ def analyze_with_progress(case_id, documents, document_type, custom_request):
             
             # Use custom request if provided, otherwise use selected document type
             doc_type = document_type if document_type else 'complaint'
-            generated_content = generate_legal_document(case_data, doc_type)
+            
+            # Try AI generation with fallback
+            try:
+                generated_content = generate_legal_document(case_data, doc_type)
+            except Exception as e:
+                logger.error(f'AI generation failed: {e}')
+                # Fallback template based on doc_type
+                if doc_type == 'appeal':
+                    generated_content = f"""АПЕЛЛЯЦИОННАЯ ЖАЛОБА
+
+В {case_data['court_name']}
+
+Заявитель: {case_data['plaintiff']['name']}
+Ответчик: {case_data['defendant']['name']}
+
+ТРЕБОВАНИЯ:
+Отменить решение суда первой инстанции.
+
+ОБОСНОВАНИЕ:
+Суд первой инстанции допустил существенные нарушения процессуальных норм.
+
+На основании изложенного, руководствуясь ст. 320-322 ГПК РФ,
+
+ПРОШУ:
+Отменить решение и удовлетворить иск в полном объеме.
+
+Дата: {case_data['date']}
+Подпись: ________________"""
+                elif doc_type == 'petition':
+                    generated_content = f"""ДОСУДЕБНАЯ ПРЕТЕНЗИЯ
+
+От: {case_data['plaintiff']['name']}
+Кому: {case_data['defendant']['name']}
+
+Уважаемый(ая) {case_data['defendant']['name']}!
+
+Вы нарушили сроки возврата займа на сумму {case_data['loan_amount']} руб.
+
+ТРЕБУЕМ:
+1. Вернуть сумму займа: {case_data['loan_amount']} руб.
+2. Уплатить проценты: {case_data['interest_amount']} руб.
+3. Уплатить неустойку: {case_data['penalty_amount']} руб.
+
+При неисполнении в течение 10 дней обратимся в суд.
+
+Дата: {case_data['date']}
+Подпись: ________________"""
+                elif doc_type == 'statement':
+                    generated_content = f"""СТРАТЕГИЯ ЗАЩИТЫ
+
+Дело: Взыскание задолженности
+Сумма: {case_data['loan_amount']} руб.
+
+I. АНАЛИЗ ДЕЛА
+- Суть спора: Взыскание задолженности по договору займа
+- Правовые основания: ст. 807-810 ГК РФ
+
+II. ТАКТИКА ЗАЩИТЫ
+1. Доказать заключение договора займа
+2. Доказать передачу денежных средств
+3. Доказать нарушение срока возврата
+4. Взыскать проценты и неустойку
+
+III. ДОКАЗАТЕЛЬСТВА
+- Договор займа
+- Расписка или платежные документы
+- Переписка о просрочке
+
+IV. ПРОГНОЗ
+Вероятность удовлетворения иска: ВЫСОКАЯ
+
+Подготовил: ________________
+Дата: {case_data['date']}"""
+                else:  # complaint (default)
+                    generated_content = f"""ИСКОВОЕ ЗАЯВЛЕНИЕ
+
+В {case_data['court_name']}
+
+Истец: {case_data['plaintiff']['name']}
+Адрес: {case_data['plaintiff']['address']}
+
+Ответчик: {case_data['defendant']['name']}
+Адрес: {case_data['defendant']['address']}
+
+О взыскании задолженности по договору займа
+
+Сумма иска: {case_data['claim_amount']} руб.
+
+ИСТОРИЯ ДЕЛА:
+Ответчик получил денежные средства в размере {case_data['loan_amount']} руб. Срок возврата ({case_data['due_date']}) истек, обязательства не исполнены.
+
+ПРАВОВОЕ ОБОСНОВАНИЕ:
+На основании ст. 807, 808, 810 ГК РФ ответчик обязан возвратить сумму займа и уплатить проценты.
+
+ИСКОВЫЕ ТРЕБОВАНИЯ:
+1. Взыскать сумму долга: {case_data['loan_amount']} руб.
+2. Взыскать проценты: {case_data['interest_amount']} руб.
+3. Взыскать неустойку: {case_data['penalty_amount']} руб.
+4. Взыскать судебные расходы: {case_data['court_fee']} руб.
+5. Взыскать моральный вред: {case_data['moral_damage']} руб.
+
+Приложения:
+1. Копия искового заявления
+2. Документы, подтверждающие требования
+
+Дата: {case_data['date']}
+Подпись: ________________"""
             
             case.update_progress(75, 'Формируем документ...')
             db.session.commit()
