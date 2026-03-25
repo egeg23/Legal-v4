@@ -229,6 +229,9 @@ def analyze_with_progress(case_id, documents, document_type, custom_request):
             analysis_result = analyze_case_documents(document_texts or ['Документ для анализа'])
             
             # Generate legal document
+            # Combine all document texts for AI context
+            combined_documents = "\n\n".join(document_texts) if document_texts else "Документы не предоставлены"
+            
             case_data = {
                 'court_name': 'Мировой судья судебного участка № ___',
                 'plaintiff': {'name': 'Истец', 'address': 'Адрес истца'},
@@ -244,7 +247,8 @@ def analyze_with_progress(case_id, documents, document_type, custom_request):
                 'lawyer_fee': '5000',
                 'total_expenses': '8000',
                 'moral_damage': '10000',
-                'documents_text': document_texts,  # REAL DOCUMENTS for AI analysis
+                'documents_text': combined_documents,  # REAL DOCUMENTS for AI analysis
+                'document_count': len(document_texts),
                 'custom_request': custom_request
             }
             
