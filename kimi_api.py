@@ -1,4 +1,3 @@
-
 import os
 import json
 import logging
@@ -6,14 +5,13 @@ import requests
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 
-# Настройка логирования
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# API Configuration
 API_BASE_URL = "https://api.moonshot.cn/v1"
 API_KEY = "sk-kUpcQ7a7hqbcXEeJSGbV2n9AGzyM4ECHrr5o7bA8R6lGGzTn"
-TIMEOUT = 90
+TIMEOUT = 120
+MIN_DOCUMENT_LENGTH = 7000
 
 class KimiAPIError(Exception):
     pass
@@ -21,15 +19,11 @@ class KimiAPIError(Exception):
 class RateLimitError(KimiAPIError):
     pass
 
-def _make_api_request(messages: List[Dict[str, str]], temperature: float = 0.3, max_tokens: int = 4000) -> str:
-    """
-    Внутренняя функция для выполнения API запроса к Moonshot AI.
-    """
+def _make_api_request(messages, temperature=0.3, max_tokens=8000):
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {API_KEY}"
     }
-    
     data = {
         "model": "kimi-latest",
         "messages": messages,
@@ -46,285 +40,169 @@ def _make_api_request(messages: List[Dict[str, str]], temperature: float = 0.3, 
         )
         
         if response.status_code == 429:
-            raise RateLimitError("Превышен лимит запросов к API")
+            raise RateLimitError("Превышен лимит запросов")
         elif response.status_code != 200:
-            raise KimiAPIError(f"Ошибка API: {response.status_code} - {response.text}")
+            raise KimiAPIError(f"Ошибка API: {response.status_code}")
         
         result = response.json()
-        return result['choices'][0]['message']['content']
+        content = result['choices'][0]['message']['content']
+        
+        # Проверка минимальной длины
+        if len(content) < MIN_DOCUMENT_LENGTH:
+            logger.warning(f"Документ короткий ({len(content)} сим), запрашиваю дополнение...")
+            messages.extend([
+                {"role": "assistant", "content": content},
+                {"role": "user", "content": f"Расширь документ до минимум {MIN_DOCUMENT_LENGTH} символов. Добавь больше аргументов, таблиц, ссылок на законы."}
+            ])
+            
+            response2 = requests.post(
+                f"{API_BASE_URL}/chat/completions",
+                headers=headers,
+                json={"model": "kimi-latest", "messages": messages, "temperature": 0.3, "max_tokens": 8000},
+                timeout=TIMEOUT
+            )
+            
+            if response2.status_code == 200:
+                extended = response2.json()['choices'][0]['message']['content']
+                logger.info(f"Расширено до {len(extended)} символов")
+                return extended
+        
+        return content
         
     except requests.exceptions.Timeout:
-        raise KimiAPIError(f"Превышен таймаут запроса ({TIMEOUT} сек)")
-    except requests.exceptions.RequestException as e:
-        raise KimiAPIError(f"Ошибка сети: {e}")
+        raise KimiAPIError(f"Таймаут {TIMEOUT} сек")
+    except Exception as e:
+        raise KimiAPIError(f"Ошибка: {e}")
 
-def search_legal_precedents(case_theme: str, specific_issues: List[str]) -> List[Dict[str, str]]:
-    """
-    Ищет актуальные судебные прецеденты по теме дела.
-    Выполняет web search для получения реальных номеров дел.
-    """
-    logger.info(f"Поиск прецедентов по теме: {case_theme}")
-    
-    # Формируем поисковые запросы
-    search_queries = []
-    
-    # Основной запрос по теме
-    if "страхован" in case_theme.lower() or "мисселлинг" in case_theme.lower():
-        search_queries.extend([
-            "Постановление Пленума ВС РФ мисселлинг страхование 2024",
-            "Пленум ВС РФ № 19 25.06.2024 мисселлинг",
-            "Обзор судебной практики ВС РФ мисселлинг 2025"
-        ])
-    
-    if "подпис" in case_theme.lower() or "поддел" in case_theme.lower():
-        search_queries.extend([
-            "Конституционный Суд РФ подпись подложность 778-О",
-            "СКЭС ВС РФ почерковедческая экспертиза 2024",
-            "Определение СКЭС ВС РФ подпись 305-ЭС22-16891"
-        ])
-    
-    if "банк" in case_theme.lower() or "списан" in case_theme.lower():
-        search_queries.extend([
-            "СКЭС ВС РФ эстоппель банк добросовестность 300-ЭС24-6956",
-            "Пленум ВС РФ банк распоряжение счетом 2024",
-            "ГК РФ ст 847 банк списание денег судебная практика"
-        ])
-    
-    if "потребитель" in case_theme.lower() or "введение в заблуждение" in case_theme.lower():
-        search_queries.extend([
-            "Закон о защите прав потребителей ст 10 12 судебная практика",
-            "Пленум ВС РФ потребитель введение в заблуждение 2024",
-            "Обзор СП ВС РФ № 3 2025 защита прав потребителей"
-        ])
-    
-    # Добавляем запросы по конкретным проблемам
-    for issue in specific_issues:
-        search_queries.append(f"Верховный Суд РФ {issue} 2024")
-        search_queries.append(f"СКЭС ВС РФ {issue} 2024 2025")
-    
-    # Если ничего не определилось — ищем общие постановления
-    if not search_queries:
-        search_queries = [
-            "Постановление Пленума ВС РФ 2024 последние",
-            "Определение СКЭС ВС РФ 2024 гражданское право",
-            "Обзор судебной практики ВС РФ 2025"
-        ]
-    
-    # Собираем прецеденты (в реальности здесь будет web search)
-    # Пока используем проверенную базу
-    precedents = [
-        {
-            "court": "Пленум Верховного Суда РФ",
-            "date": "25.06.2024",
-            "number": "№ 19, п. 7",
-            "theme": "мисселлинг_страхование",
-            "quote": "В случае заключения банком с гражданином-потребителем вместо договора банковского вклада договора личного страхования... суду следует тщательно проверять доводы потребителя о введении его в заблуждение",
-            "articles": ["ст. 10 ГК РФ", "Закон РФ № 2300-1"]
-        },
-        {
-            "court": "СКЭС Верховного Суда РФ",
-            "date": "08.10.2024",
-            "number": "№ 300-ЭС24-6956",
-            "theme": "эстоппель_добросовестность",
-            "quote": "Принцип эстоппель не защищает сторону, действовавшую недобросовестно. Применение эстоппеля в пользу банка, использовавшего подложные документы, — перверсия правосудия",
-            "articles": ["ст. 10 ГК РФ", "ст. 166 ГК РФ"]
-        },
-        {
-            "court": "Конституционный Суд РФ",
-            "date": "26.03.2019",
-            "number": "№ 778-О",
-            "theme": "экспертиза_подписей",
-            "quote": "Способ проверки заявления о подложности доказательства определяет сам суд, но при наличии обоснованных сомнений суд обязан принять меры. Отказ без проверки — произвольное ограничение права на защиту",
-            "articles": ["ст. 186 ГПК РФ", "ст. 79 ГПК РФ"]
-        },
-        {
-            "court": "СКЭС Верховного Суда РФ",
-            "date": "15.11.2022",
-            "number": "№ 305-ЭС22-16891",
-            "theme": "экспертиза_подписей",
-            "quote": "При заявлении стороны о подложности подписи на документе, являющемся основанием для списания денежных средств, суд обязан назначить почерковедческую экспертизу",
-            "articles": ["ст. 79 ГПК РФ"]
-        },
-        {
-            "court": "Пленум Верховного Суда РФ",
-            "date": "25.06.2024",
-            "number": "№ 19, п. 6",
-            "theme": "форма_договора_страхования",
-            "quote": "Письменная форма считается соблюдённой при вручении страхового полиса, подписанного страхователем. Поддельная подпись — не выражение воли",
-            "articles": ["ст. 940 ГК РФ", "ст. 168 ГК РФ"]
-        },
-        {
-            "court": "Пленум Верховного Суда РФ",
-            "date": "25.12.2018",
-            "number": "№ 49, п. 9",
-            "theme": "бремя_доказывания",
-            "quote": "Банк и страховщик должны доказать факт заключения договора — предоставить видеозаписи подписания, SMS-подтверждения, показания свидетелей",
-            "articles": ["ст. 56 ГПК РФ", "ст. 12 ГПК РФ"]
-        },
-        {
-            "court": "Информационное письмо ЦБ РФ",
-            "date": "13.01.2021",
-            "number": "№ ИН-01-59/2",
-            "theme": "инвестиционное_страхование",
-            "quote": "Продукты с инвестиционной составляющей не предназначены для широкого круга физических лиц без специальных знаний и опыта",
-            "articles": ["Закон РФ № 2300-1"]
-        }
+def get_structure_template():
+    return '''
+СТРУКТУРА ДОКУМЕНТА (минимум 7000 символов):
+
+I. ПРЕДМЕТ ОБЖАЛОВАНИЯ (500-800 символов)
+   - Что обжалуется, дата, номер дела, наименование суда
+   - Почему незаконно
+   - Конкретные требования с суммами
+
+II. СУЩЕСТВЕННЫЕ ПРОЦЕССУАЛЬНЫЕ НАРУШЕНИЯ (1500-2000 символов)
+   1. Нарушение ст. 79, 186 ГПК РФ — отказ в экспертизе
+      • Установлено, коллизия, нарушения суда, практика, последствия
+   2. Нарушение ст. 12, 56 ГПК РФ — бремя доказывания
+      • Ошибка суда, правильное распределение, что проигнорировано
+
+III. НАРУШЕНИЯ МАТЕРИАЛЬНОГО ПРАВА (1500-2000 символов)
+   3. Неправильное применение эстоппеля (ст. 10, 166 ГК РФ)
+   4. Нарушение прав потребителя (Закон РФ № 2300-1)
+      • Таблица нарушений | Требование | Нарушение |
+   5. Недействительность договоров (ст. 940, 957, 168 ГК РФ)
+
+IV. ОСОБЫЕ ДОВОДЫ ПО СУТИ СПОРА (1000-1500 символов)
+   6. Отсутствие распоряжения на списание (ст. 847, 1102 ГК РФ)
+   7. Противоречивость позиции ответчиков
+
+V. ПРЕЦЕДЕНТНАЯ ПРАКТИКА (800-1000 символов)
+   - Пленум ВС РФ, СКЭС ВС РФ с конкретными номерами дел
+
+VI. ПРОСЬБИ (500-800 символов)
+   - На основании ст. X, Y ГПК РФ
+   - Перечень требований с суммами
+
+VII. ПРИЛОЖЕНИЯ (200-300 символов)
+   - Перечень документов
+
+ИСПОЛЬЗУЙ: таблицы, списки, жирный шрифт, цитаты законов, конкретные номера дел.
+'''
+
+def search_precedents(theme, issues):
+    db = [
+        {"court": "КС РФ", "date": "26.03.2019", "number": "№ 778-О", "theme": "подписи", "quote": "Способ проверки заявления о подложности доказательства определяет сам суд", "articles": ["ст. 186 ГПК РФ"]},
+        {"court": "СКЭС ВС РФ", "date": "08.10.2024", "number": "№ 300-ЭС24-6956", "theme": "эстоппель", "quote": "Принцип эстоппель не защищает сторону, действовавшую недобросовестно", "articles": ["ст. 10 ГК РФ"]},
+        {"court": "СКЭС ВС РФ", "date": "15.11.2022", "number": "№ 305-ЭС22-16891", "theme": "подписи", "quote": "При споре о подлинности подписи суд обязан назначить экспертизу", "articles": ["ст. 79 ГПК РФ"]},
+        {"court": "Пленум ВС РФ", "date": "25.06.2024", "number": "№ 19, п. 7", "theme": "страхование", "quote": "В случае заключения банком вместо вклада договора страхования... суд проверяет доводы потребителя", "articles": ["Закон РФ № 2300-1"]},
+        {"court": "Пленум ВС РФ", "date": "25.06.2024", "number": "№ 19, п. 6", "theme": "страхование", "quote": "Письменная форма соблюдена при вручении полиса, подписанного страхователем", "articles": ["ст. 940 ГК РФ"]},
+        {"court": "Пленум ВС РФ", "date": "25.12.2018", "number": "№ 49, п. 9", "theme": "доказывание", "quote": "Банк должен доказать факт заключения договора", "articles": ["ст. 56 ГПК РФ"]},
+        {"court": "ЦБ РФ", "date": "13.01.2021", "number": "№ ИН-01-59/2", "theme": "страхование", "quote": "Продукты с инвестиционной составляющей не для лиц без специальных знаний", "articles": ["Закон РФ № 2300-1"]}
     ]
     
-    # Фильтруем прецеденты по теме
-    filtered = []
-    case_lower = case_theme.lower()
-    
-    for p in precedents:
-        # Проверяем соответствие теме
-        if p['theme'] in case_lower:
-            filtered.append(p)
-        # Проверяем ключевые слова
-        elif any(kw in case_lower for kw in p.get('keywords', [])):
-            filtered.append(p)
-    
-    # Если ничего не нашли — берём универсальные
-    if not filtered:
-        filtered = precedents[:3]
-    
-    logger.info(f"Найдено {len(filtered)} подходящих прецедентов")
-    return filtered[:5]  # Максимум 5 прецедентов
+    filtered = [p for p in db if p['theme'] in theme.lower() or any(i in theme.lower() for i in issues)]
+    return filtered[:5] if filtered else db[:3]
 
-def analyze_case_documents(documents: List[str]) -> Dict[str, Any]:
-    """
-    Анализирует документы дела и определяет правовые вопросы.
-    """
-    if not documents:
+def analyze_docs(docs):
+    if not docs:
         return {"theme": "общий", "issues": []}
     
-    # Объединяем тексты документов
-    combined_text = " ".join(documents)[:10000]  # Ограничиваем объем
-    
-    # Определяем тему по ключевым словам
-    text_lower = combined_text.lower()
-    
+    text = " ".join(docs)[:10000].lower()
     theme = "общий"
     issues = []
     
-    # Определяем тематику
-    if any(word in text_lower for word in ["страхован", "страховой", "полис", "премия"]):
-        theme = "страхование_мисселлинг"
+    if any(w in text for w in ["страхован", "полис", "премия"]):
+        theme = "страхование"
         issues.append("мисселлинг")
+    if any(w in text for w in ["подпис", "подделка"]):
+        theme = "подписи"
+        issues.append("экспертиза")
+    if any(w in text for w in ["банк", "списал", "счет"]):
+        theme = "банк"
+        issues.append("списание")
     
-    if any(word in text_lower for word in ["подпис", "подписал", "подделка", "подложный"]):
-        theme = "подложные_подписи"
-        issues.append("экспертиза_подписей")
-    
-    if any(word in text_lower for word in ["банк", "списал", "счет", "счёт", "карта"]):
-        if theme == "общий":
-            theme = "банковские_операции"
-        issues.append("неправомерное_списание")
-    
-    if any(word in text_lower for word in ["договор", "соглашение", "условия"]):
-        issues.append("недействительность_договора")
-    
-    if any(word in text_lower for word in ["пенсионер", "пожилой", "возраст", "не_знал"]):
-        theme = "защита_прав_потребителей"
-        issues.append("введение_в_заблуждение")
-    
-    return {
-        "theme": theme,
-        "issues": issues,
-        "text_sample": combined_text[:500]
-    }
+    return {"theme": theme, "issues": issues}
 
-def generate_legal_document(
-    case_data: Dict[str, Any], 
-    document_type: str, 
-    api_key: str = None
-) -> str:
-    """
-    Генерирует юридический документ через Moonshot AI.
-    Перед генерацией выполняет поиск подходящих прецедентов.
-    """
+def generate_legal_document(case_data, document_type, api_key=None):
     if not case_data:
-        raise ValueError("Данные дела не могут быть пустыми")
+        raise ValueError("Нет данных дела")
     
-    # Шаг 1: Анализируем документы
-    documents_text = case_data.get('documents_text', [])
-    analysis = analyze_case_documents(documents_text)
+    analysis = analyze_docs(case_data.get('documents_text', []))
+    precedents = search_precedents(analysis['theme'], analysis['issues'])
     
-    # Шаг 2: Ищем прецеденты
-    precedents = search_legal_precedents(
-        analysis['theme'], 
-        analysis['issues']
-    )
+    prec_block = "\\n".join([f"• {p['court']} {p['date']} {p['number']}: {p['quote']} ({', '.join(p['articles'])})" for p in precedents])
     
-    # Шаг 3: Формируем блок с прецедентами
-    precedents_block = "\n\n".join([
-        f"• {p['court']} {p['date']} {p['number']}: {p['quote']} ({', '.join(p['articles'])})"
-        for p in precedents
-    ])
-    
-    # Шаг 4: Формируем системный промпт
-    system_prompt = f"""Ты — профессиональный юрист с 30-летним стажем. Составь максимально подробный юридический документ.
+    system = f"""Ты — юрист с 30-летним стажем. Составь подробный документ.
 
-ТИП ДОКУМЕНТА: {document_type}
+ТИП: {document_type}
+ТЕМА: {analysis['theme']}
 
-ТЕМА ДЕЛА: {analysis['theme']}
+{get_structure_template()}
 
-ОСНОВНЫЕ ПРАВОВЫЕ ВОПРОСЫ:
-{chr(10).join(analysis['issues'])}
+ПРЕЦЕДЕНТЫ:
+{prec_block}
 
-ПОДХОДЯЩИЕ СУДЕБНЫЕ ПРЕЦЕДЕНТЫ (ОБЯЗАТЕЛЬНО ИСПОЛЬЗУЙ В ДОКУМЕНТЕ):
-{precedents_block}
+ТРЕБОВАНИЯ:
+1. МИНИМУМ 7000 СИМВОЛОВ
+2. Все 7 разделов подробно
+3. Таблицы, списки, цитаты
+4. Конкретные номера дел"""
 
-СТРУКТУРА ДОКУМЕНТА:
-I. ПРЕДМЕТ ОБЖАЛОВАНИЯ
-II. СУЩЕСТВЕННЫЕ ПРОЦЕССУАЛЬНЫЕ НАРУШЕНИЯ
-III. НАРУШЕНИЯ МАТЕРИАЛЬНОГО ПРАВА
-IV. ОСОБЫЕ ДОВОДЫ ПО СУТИ СПОРА
-V. ПРЕЦЕДЕНТНАЯ ПРАКТИКА (используй указанные выше прецеденты!)
-VI. ПРОСЬБИ
-VII. ПРИЛОЖЕНИЯ
-
-КРИТИЧЕСКИЕ ТРЕБОВАНИЯ:
-1. Используй ТОЛЬКО указанные прецеденты с конкретными номерами дел
-2. НЕ пиши "[указать номер]" или "[вставить дату]" — используй реальные данные из списка выше
-3. Каждый пункт должен быть раскрыт подробно с таблицами
-4. Минимум 5000 токенов
-5. Агрессивная линия защиты клиента"""
-
-    # Шаг 5: Формируем сообщения для API
     messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": f"Составь {document_type} на основе следующих данных:\n\n{json.dumps(case_data, ensure_ascii=False, indent=2)}"}
+        {"role": "system", "content": system},
+        {"role": "user", "content": f"Составь {document_type}: {json.dumps(case_data, ensure_ascii=False)[:3000]}"}
     ]
     
     try:
-        response = _make_api_request(messages, temperature=0.3, max_tokens=4000)
-        return response.strip()
+        response = _make_api_request(messages, temperature=0.3, max_tokens=8000)
         
+        if len(response) < MIN_DOCUMENT_LENGTH:
+            logger.warning(f"Итоговый документ короткий: {len(response)} символов")
+        else:
+            logger.info(f"Документ готов: {len(response)} символов")
+        
+        return response.strip()
     except Exception as e:
-        logger.error(f"Ошибка при генерации документа: {e}")
-        raise KimiAPIError(f"Не удалось сгенерировать документ: {e}")
+        logger.error(f"Ошибка: {e}")
+        raise KimiAPIError(f"Ошибка генерации: {e}")
 
-def get_document_type_name(doc_type: str) -> str:
-    """Возвращает название типа документа."""
+def get_document_type_name(doc_type):
     types = {
         'complaint': 'Исковое заявление',
-        'appeal': 'Апелляционная жалоба',
+        'appeal': 'Апелляционная жалоба', 
         'petition': 'Досудебная претензия',
-        'statement': 'Стратегия защиты',
-        'cassation': 'Кассационная жалоба',
-        'supervisory': 'Надзорная жалоба'
+        'statement': 'Стратегия защиты'
     }
     return types.get(doc_type, 'Юридический документ')
 
-def check_context_consistency(documents: List[str], api_key: str = None) -> Dict[str, Any]:
-    """Проверяет согласованность контекста между документами."""
-    return {
-        "consistent": True,
-        "confidence": 0.95,
-        "issues": []
-    }
+def check_context_consistency(docs, api_key=None):
+    return {"consistent": True, "confidence": 0.95, "issues": []}
 
-# Test function
+def analyze_case_documents(docs):
+    return analyze_docs(docs)
+
 if __name__ == "__main__":
-    print("Kimi API Module Loaded")
-    print(f"Precedents available: {len(search_legal_precedents('страхование', []))}")
+    print("Kimi API: MIN 7000 chars loaded")
