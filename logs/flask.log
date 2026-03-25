@@ -1,0 +1,23 @@
+INFO:__main__:Starting Legal AI Service...
+ * Serving Flask app 'app'
+ * Debug mode: off
+INFO:werkzeug:[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://10.183.62.99:5000
+INFO:werkzeug:[33mPress CTRL+C to quit[0m
+/mnt/okcomputer/output/legal-ai-service/app.py:861: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  'timestamp': datetime.utcnow().isoformat(),
+INFO:werkzeug:127.0.0.1 - - [28/Feb/2026 07:14:06] "GET /api/health HTTP/1.1" 200 -
+INFO:__main__:GET /api/pricing - IP: 101.200.133.251
+INFO:werkzeug:127.0.0.1 - - [28/Feb/2026 07:14:34] "GET /api/pricing HTTP/1.1" 200 -
+INFO:__main__:POST /api/register - IP: 39.106.150.27
+INFO:__main__:User registered: test@example.com
+INFO:werkzeug:127.0.0.1 - - [28/Feb/2026 07:14:40] "POST /api/register HTTP/1.1" 200 -
+INFO:__main__:POST /api/login - IP: 39.107.143.243
+INFO:__main__:User logged in: test@example.com
+INFO:werkzeug:127.0.0.1 - - [28/Feb/2026 07:14:45] "POST /api/login HTTP/1.1" 200 -
+erkzeug:127.0.0.1 - - [28/Feb/2026 07:08:15] "[33mGET /api/auth/me HTTP/1.1[0m" 404 -
+INFO:werkzeug:127.0.0.1 - - [28/Feb/2026 07:08:15] "[31m[1mGET /api/cases HTTP/1.1[0m" 401 -
+INFO:werkzeug:127.0.0.1 - - [28/Feb/2026 07:08:32] "[33mGET /api/cases/1/download HTTP/1.1[0m" 404 -
+INFO:werkzeug:127.0.0.1 - - [28/Feb/2026 07:08:47] "[33mGET /api/auth/me HTTP/1.1[0m" 404 -

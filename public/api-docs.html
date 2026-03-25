@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Документация | Legal AI Service</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0f0f1a;
+            --bg-secondary: #1a1a2e;
+            --bg-card: #16162a;
+            --accent: #667eea;
+            --accent-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0b0;
+            --border: rgba(255,255,255,0.08);
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+        
+        .header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 20px 40px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: var(--accent-gradient);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+        
+        .back-link {
+            color: var(--text-secondary);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .back-link:hover { color: var(--text-primary); }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 60px 20px;
+        }
+        
+        .hero {
+            text-align: center;
+            margin-bottom: 60px;
+        }
+        
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: var(--accent-gradient);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            margin-bottom: 24px;
+        }
+        
+        .hero h1 {
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+        
+        .hero p {
+            color: var(--text-secondary);
+            font-size: 1.2rem;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 32px;
+            margin-bottom: 32px;
+        }
+        
+        .card h2 {
+            font-size: 1.5rem;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .card h3 {
+            font-size: 1.1rem;
+            margin: 24px 0 12px;
+            color: var(--accent);
+        }
+        
+        .card p {
+            color: var(--text-secondary);
+            margin-bottom: 16px;
+        }
+        
+        .endpoint {
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 16px 0;
+        }
+        
+        .endpoint-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        
+        .method {
+            background: var(--success);
+            color: #0f0f1a;
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.85rem;
+        }
+        
+        .method-post { background: #22c55e; }
+        .method-get { background: #3b82f6; }
+        
+        .endpoint-path {
+            font-family: monospace;
+            font-size: 0.95rem;
+        }
+        
+        .code-block {
+            background: #0d0d15;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 16px;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 0.85rem;
+            line-height: 1.6;
+            overflow-x: auto;
+            margin: 12px 0;
+            color: #e4e4e7;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        .contact-section {
+            background: var(--accent-gradient);
+            border-radius: 16px;
+            padding: 40px;
+            text-align: center;
+        }
+        
+        .contact-section h2 {
+            font-size: 2rem;
+            margin-bottom: 16px;
+        }
+        
+        .contact-section p {
+            margin-bottom: 24px;
+            opacity: 0.9;
+        }
+        
+        .telegram-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            background: #fff;
+            color: #0088cc;
+            padding: 16px 32px;
+            border-radius: 12px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+        
+        .telegram-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        
+        .steps {
+            display: grid;
+            gap: 20px;
+        }
+        
+        .step {
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+        }
+        
+        .step-number {
+            width: 40px;
+            height: 40px;
+            background: var(--accent-gradient);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+        
+        .step-content h4 {
+            font-size: 1.1rem;
+            margin-bottom: 8px;
+        }
+        
+        .step-content p {
+            margin: 0;
+        }
+        
+        @media (max-width: 768px) {
+            .hero h1 { font-size: 2rem; }
+            .container { padding: 40px 16px; }
+            .card { padding: 24px; }
+        }
+    </style>
+<style>
+    /* Fix mobile menu button positioning */
+    .mobile-menu-btn {
+        display: none;
+        flex-direction: column;
+        justify-content: space-between;
+        width: 28px;
+        height: 22px;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        padding: 0;
+        margin-left: auto;
+        position: relative;
+        z-index: 1001;
+    }
+    
+    .mobile-menu-btn span {
+        display: block;
+        width: 100%;
+        height: 3px;
+        background: #4a5568;
+        border-radius: 2px;
+        transition: all 0.3s ease;
+    }
+    
+    .mobile-menu-btn.active span:nth-child(1) {
+        transform: rotate(45deg) translate(6px, 6px);
+    }
+    
+    .mobile-menu-btn.active span:nth-child(2) {
+        opacity: 0;
+    }
+    
+    .mobile-menu-btn.active span:nth-child(3) {
+        transform: rotate(-45deg) translate(7px, -7px);
+    }
+    
+    @media (max-width: 767px) {
+        .mobile-menu-btn {
+            display: flex !important;
+            position: absolute;
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        
+        .header {
+            position: relative;
+        }
+        
+        .nav {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: relative;
+        }
+    }
+    
+    @media (max-width: 375px) {
+        .mobile-menu-btn {
+            right: 12px;
+        }
+    }
+</style>
+</head>
+<body>
+    <header class="header">
+        <div class="logo">
+            <div class="logo-icon">⚖️</div>
+            <span>Legal AI API</span>
+        </div>
+        <a href="/legal-ai/" class="back-link">← На главную</a>
+    </header>
+
+    <div class="container">
+        <div class="hero">
+            <div class="hero-badge">🚀 White Label API</div>
+            <h1>API для разработчиков</h1>
+            <p>Интегрируйте Legal AI и Seller AI в свои продукты. Предоставляйте услуги AI-ассистента под своим брендом.</p>
+        </div>
+
+        <div class="card">
+            <h2>📋 Как подключиться</h2>
+            <div class="steps">
+                <div class="step">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h4>Напишите нам</h4>
+                        <p>Свяжитесь со мной в Telegram для обсуждения условий подключения и получения API-ключа.</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h4>Получите доступ</h4>
+                        <p>После одобрения заявки вы получите API-ключ и доступ к документации.</p>
+                    </div>
+                </div>
+                <div class="step">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h4>Интегрируйте</h4>
+                        <p>Подключите API к вашему продукту и начните предоставлять услуги под своим брендом.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>⚖️ Legal AI API</h2>
+            <p>Генерация юридических документов: иски, апелляции, претензии, стратегии защиты.</p>
+            
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method method-post">POST</span>
+                    <span class="endpoint-path">/api/v1/legal/generate</span>
+                </div>
+                <p style="margin-bottom: 12px;">Генерация юридического документа</p>
+                
+                <h4 style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 8px;">Headers:</h4>
+                <pre class="code-block">Content-Type: application/json
+X-API-Key: wl_legal_live_your_key_here</pre>
+                
+                <h4 style="font-size: 0.9rem; color: var(--text-secondary); margin: 16px 0 8px;">Request Body:</h4>
+                <pre class="code-block">{
+  "document_type": "исковое_заявление",
+  "description": "Взыскание задолженности по договору...",
+  "claim_amount": 2500000,
+  "documents": ["base64_encoded_file"]
+}</pre>
+
+                <h4 style="font-size: 0.9rem; color: var(--text-secondary); margin: 16px 0 8px;">Response:</h4>
+                <pre class="code-block">{
+  "success": true,
+  "data": {
+    "document_id": "doc_123456",
+    "status": "generating",
+    "remaining_requests": 98
+  }
+}</pre>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>🛒 Seller AI API</h2>
+            <p>Аналитика и оптимизация для продавцов на маркетплейсах (Wildberries, Ozon, Авито).</p>
+            
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method method-post">POST</span>
+                    <span class="endpoint-path">/api/v1/seller/analyze</span>
+                </div>
+                <p style="margin-bottom: 12px;">Анализ карточки товара</p>
+                
+                <h4 style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 8px;">Headers:</h4>
+                <div class="code-block">
+<span class="key">Content-Type</span>: application/json
+<span class="key">X-API-Key</span>: wl_seller_live_your_key_here</div>
+                
+                <h4 style="font-size: 0.9rem; color: var(--text-secondary); margin: 16px 0 8px;">Request Body:</h4>
+                <pre class="code-block">{
+  "marketplace": "wildberries",
+  "product_url": "https://www.wildberries.ru/catalog/12345/detail.aspx",
+  "analysis_type": "full"
+}</pre>
+
+                <h4 style="font-size: 0.9rem; color: var(--text-secondary); margin: 16px 0 8px;">Response:</h4>
+                <pre class="code-block">{
+  "success": true,
+  "data": {
+    "analysis_id": "anl_789012",
+    "competitors": [...],
+    "recommendations": [...],
+    "remaining_requests": 998
+  }
+}</pre>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>📊 Методы API</h2>
+            
+            <h3>Проверка баланса</h3>
+            <div class="endpoint">
+                <div class="endpoint-header">
+                    <span class="method method-get">GET</span>
+                    <span class="endpoint-path">/api/v1/partner/usage</span>
+                </div>
+                <p>Получить информацию об оставшихся запросах и активных пакетах.</p>
+            </div>
+            
+            <h3>Вебхуки</h3>
+            <p>Настройте вебхуки для получения уведомлений о событиях:</p>
+            <ul style="margin-left: 20px; color: var(--text-secondary);">
+                <li>Пакет запросов скоро закончится (80%, 90%, 100%)</li>
+                <li>Документ сгенерирован</li>
+                <li>Анализ завершён</li>
+            </ul>
+        </div>
+
+        <div class="contact-section">
+            <h2>💬 Готовы подключиться?</h2>
+            <p>Напишите мне в Telegram для обсуждения условий подключения и получения API-доступа.</p>
+            <a href="https://t.me/siberian_2" target="_blank" class="telegram-btn">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.446 1.394c-.14.18-.357.223-.548.223l.188-2.623 4.823-4.351c.192-.192-.054-.3-.297-.108L8.32 13.617l-2.56-.8c-.556-.176-.57-.56.116-.828l9.97-3.848c.463-.174.871.108.65.88z"/></svg>
+                Написать в Telegram
+            </a>
+            <p style="margin-top: 24px; font-size: 0.9rem; opacity: 0.8;">@siberian_2</p>
+        </div>
+    </div>
+</body>
+</html>

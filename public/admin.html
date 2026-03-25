@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Админ-панель | Maximov Tech</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        :root {
+            --bg-primary: #0f0f1a;
+            --bg-secondary: #1a1a2e;
+            --bg-card: #16162a;
+            --accent: #667eea;
+            --accent-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0b0;
+            --success: #22c55e;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --border: rgba(255,255,255,0.08);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+        }
+
+        .header {
+            background: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo {
+            font-size: 1.25rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logo-icon {
+            width: 36px;
+            height: 36px;
+            background: var(--accent-gradient);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .header-nav {
+            display: flex;
+            gap: 24px;
+        }
+
+        .nav-link {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .nav-link:hover { color: var(--text-primary); }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+
+        .page-title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin-bottom: 24px;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .stat-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+
+        .stat-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+        }
+
+        .stat-icon.users { background: rgba(102, 126, 234, 0.15); }
+        .stat-icon.payments { background: rgba(34, 197, 94, 0.15); }
+        .stat-icon.revenue { background: rgba(245, 158, 11, 0.15); }
+        .stat-icon.growth { background: rgba(239, 68, 68, 0.15); }
+
+        .stat-label {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .stat-value {
+            font-size: 1.75rem;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .stat-change {
+            font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .stat-change.positive { color: var(--success); }
+        .stat-change.negative { color: var(--danger); }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 16px;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .tab:hover { border-color: var(--accent); color: var(--text-primary); }
+        .tab.active { background: var(--accent-gradient); border-color: transparent; color: white; }
+
+        /* Content */
+        .content-section { display: none; }
+        .content-section.active { display: block; }
+
+        /* Cards */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            margin-bottom: 16px;
+        }
+
+        .card-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .card-title {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .card-body { padding: 20px; }
+
+        /* Tables */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .data-table th,
+        .data-table td {
+            text-align: left;
+            padding: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .data-table th {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        .data-table td {
+            font-size: 0.9rem;
+        }
+
+        .data-table tr:hover { background: rgba(255,255,255,0.02); }
+
+        /* Buttons */
+        .btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-sm { padding: 6px 12px; font-size: 0.8rem; }
+
+        .btn-primary { background: var(--accent-gradient); color: white; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-warning { background: var(--warning); color: #1a1a2e; }
+
+        .btn:hover { opacity: 0.9; transform: translateY(-1px); }
+
+        /* Badge */
+        .badge {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .badge-success { background: rgba(34, 197, 94, 0.15); color: var(--success); }
+        .badge-warning { background: rgba(245, 158, 11, 0.15); color: var(--warning); }
+        .badge-danger { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .modal-overlay.active { display: flex; }
+
+        .modal {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            max-width: 500px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .modal-title { font-size: 1.1rem; font-weight: 600; }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        .modal-body { padding: 20px; }
+
+        .form-group { margin-bottom: 16px; }
+
+        .form-label {
+            display: block;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-bottom: 6px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 10px 14px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+        }
+
+        .form-input:focus { outline: none; border-color: var(--accent); }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        @media (max-width: 768px) {
+            .stats-grid { grid-template-columns: 1fr; }
+            .header-nav { display: none; }
+        }
+    </style>
+<style>
+    /* Fix mobile menu button positioning */
+    .mobile-menu-btn {
+        display: none;
+        flex-direction: column;
+        justify-content: space-between;
+        width: 28px;
+        height: 22px;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        padding: 0;
+        margin-left: auto;
+        position: relative;
+        z-index: 1001;
+    }
+    
+    .mobile-menu-btn span {
+        display: block;
+        width: 100%;
+        height: 3px;
+        background: #4a5568;
+        border-radius: 2px;
+        transition: all 0.3s ease;
+    }
+    
+    .mobile-menu-btn.active span:nth-child(1) {
+        transform: rotate(45deg) translate(6px, 6px);
+    }
+    
+    .mobile-menu-btn.active span:nth-child(2) {
+        opacity: 0;
+    }
+    
+    .mobile-menu-btn.active span:nth-child(3) {
+        transform: rotate(-45deg) translate(7px, -7px);
+    }
+    
+    @media (max-width: 767px) {
+        .mobile-menu-btn {
+            display: flex !important;
+            position: absolute;
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        
+        .header {
+            position: relative;
+        }
+        
+        .nav {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: relative;
+        }
+    }
+    
+    @media (max-width: 375px) {
+        .mobile-menu-btn {
+            right: 12px;
+        }
+    }
+</style>
+</head>
+<body>
+    <header class="header">
+        <div class="logo">
+            <div class="logo-icon">👑</div>
+            <span>Админ-панель</span>
+        </div>
+        <nav class="header-nav">
+            <a href="#" class="nav-link">Legal AI</a>
+            <a href="#" class="nav-link">Seller AI</a>
+            <a href="#" class="nav-link">Deputy OS</a>
+            <a href="#" class="nav-link" onclick="logout()">Выйти</a>
+        </nav>
+    </header>
+
+    <div class="container">
+        <h1 class="page-title">📊 Общая статистика</h1>
+
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-header">
+                    <div class="stat-icon users">👥</div>
+                    <div class="stat-label">Новые пользователи</div>
+                </div>
+                <div class="stat-value" id="newUsers">0</div>
+                <div class="stat-change positive">
+                    <span>↑</span>
+                    <span id="userGrowth">0%</span> за день
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-header">
+                    <div class="stat-icon payments">💳</div>
+                    <div class="stat-label">Оплаты сегодня</div>
+                </div>
+                <div class="stat-value" id="todayPayments">0</div>
+                <div class="stat-change positive">
+                    <span>↑</span>
+                    <span id="paymentGrowth">0%</span> за день
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-header">
+                    <div class="stat-icon revenue">💰</div>
+                    <div class="stat-label">Выручка</div>
+                </div>
+                <div class="stat-value" id="revenue">0 ₽</div>
+                <div class="stat-change positive">
+                    <span>↑</span>
+                    <span id="revenueGrowth">0%</span> за день
+                </div>
+            </div>
+
+            <div class="stat-card">
+                <div class="stat-header">
+                    <div class="stat-icon growth">📈</div>
+                    <div class="stat-label">Активных кейсов</div>
+                </div>
+                <div class="stat-value" id="activeCases">0</div>
+                <div class="stat-change positive">
+                    <span>↑</span>
+                    <span id="caseGrowth">0%</span> за день
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('overview')">Обзор</button>
+            <button class="tab" onclick="switchTab('users')">Пользователи</button>
+            <button class="tab" onclick="switchTab('payments')">Оплаты</button>
+            <button class="tab" onclick="switchTab('tariffs')">Тарифы</button>
+        </div>
+
+        <!-- Overview Section -->
+        <div id="overview" class="content-section active">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">📈 Динамика по проектам</div>
+                    <select class="form-input" style="width: auto;" onchange="loadStats(this.value)">
+                        <option value="day">За день</option>
+                        <option value="week">За неделю</option>
+                        <option value="month">За месяц</option>
+                    </select>
+                </div>
+                <div class="card-body">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Проект</th>
+                                <th>Пользователи</th>
+                                <th>Оплаты</th>
+                                <th>Выручка</th>
+                                <th>Прирост</th>
+                            </tr>
+                        </thead>
+                        <tbody id="projectsTable">
+                            <tr>
+                                <td><strong>Legal AI</strong></td>
+                                <td id="legalUsers">-</td>
+                                <td id="legalPayments">-</td>
+                                <td id="legalRevenue">-</td>
+                                <td class="stat-change positive">↑ 12%</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Seller AI</strong></td>
+                                <td id="sellerUsers">-</td>
+                                <td id="sellerPayments">-</td>
+                                <td id="sellerRevenue">-</td>
+                                <td class="stat-change positive">↑ 8%</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Deputy OS</strong></td>
+                                <td id="deputyUsers">-</td>
+                                <td id="deputyPayments">-</td>
+                                <td id="deputyRevenue">-</td>
+                                <td class="stat-change negative">↓ 2%</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        
+        <!-- Users Section -->
+        <div id="users" class="content-section">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">👥 Управление пользователями (<span id="usersCount">0</span>)</div>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="text" class="form-input" placeholder="Поиск по email..." style="width: 250px;" id="userSearch" onkeyup="searchUsers()">
+                        <button class="btn btn-primary" onclick="loadUsers()">🔄 Обновить</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Email</th>
+                                <th>Телефон</th>
+                                <th>Кредиты</th>
+                                <th>Тариф</th>
+                                <th>Статус</th>
+                                <th>Действия</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersTable">
+                            <tr><td colspan="7" style="text-align: center; padding: 40px; color: var(--text-secondary);">Загрузка...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Payments Section -->
+        <div id="payments" class="content-section">
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">💳 История оплат</div>
+                </div>
+                <div class="card-body">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Пользователь</th>
+                                <th>Проект</th>
+                                <th>Сумма</th>
+                                <th>Дата</th>
+                                <th>Статус</th>
+                            </tr>
+                        </thead>
+                        <tbody id="paymentsTable">
+                            <!-- Dynamic content -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        
+        <!-- Tariffs Section -->
+        <div id="tariffs" class="content-section">
+            <div class="stats-grid" style="grid-template-columns: repeat(2, 1fr); margin-bottom: 20px;">
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <div class="stat-icon revenue">💰</div>
+                        <div class="stat-label">Общая выручка</div>
+                    </div>
+                    <div class="stat-value" id="totalTariffRevenue">0 ₽</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-header">
+                        <div class="stat-icon users">🛒</div>
+                        <div class="stat-label">Всего продаж</div>
+                    </div>
+                    <div class="stat-value" id="totalTariffSales">0</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <div class="card-title">💎 Популярность тарифов</div>
+                    <select class="form-input" style="width: auto;" onchange="loadTariffs(this.value)">
+                        <option value="day">За день</option>
+                        <option value="week">За неделю</option>
+                        <option value="month" selected>За месяц</option>
+                    </select>
+                </div>
+                <div class="card-body">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Тариф</th>
+                                <th>Цена</th>
+                                <th>Кредиты</th>
+                                <th>Продаж</th>
+                                <th>Выручка</th>
+                                <th>Доля</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tariffsTable">
+                            <tr><td colspan="6" style="text-align: center; color: var(--text-secondary);">Загрузка...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    
+    <!-- User Action Modal -->
+    <div class="modal-overlay" id="userModal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">👤 Управление пользователем #<span id="modalUserId"></span></div>
+                <button class="modal-close" onclick="closeModal()">×</button>
+            </div>
+            <div class="modal-body">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+                    <div class="form-group">
+                        <label class="form-label">Email</label>
+                        <input type="text" class="form-input" id="modalEmail" readonly style="background: var(--bg-primary);">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Телефон</label>
+                        <input type="text" class="form-input" id="modalPhone" readonly style="background: var(--bg-primary);">
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+                    <div class="form-group">
+                        <label class="form-label">Текущие кредиты</label>
+                        <input type="text" class="form-input" id="modalBalance" readonly style="background: var(--bg-primary); font-weight: 600; color: var(--accent);">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Статус</label>
+                        <input type="text" class="form-input" id="modalStatus" readonly style="background: var(--bg-primary);">
+                    </div>
+                </div>
+
+                <hr style="border: none; border-top: 1px solid var(--border); margin: 24px 0;">
+
+                <h3 style="font-size: 1rem; margin-bottom: 16px; color: var(--text-secondary);">⚡ Быстрые действия</h3>
+
+                <!-- Add Credits -->
+                <div style="background: var(--bg-primary); padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                    <div style="font-weight: 600; margin-bottom: 12px;">💰 Начислить кредиты</div>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="number" class="form-input" id="addCredits" placeholder="Количество" style="flex: 1;">
+                        <button class="btn btn-success" onclick="saveUserChanges()">Начислить</button>
+                    </div>
+                </div>
+
+                <!-- Change Tariff -->
+                <div style="background: var(--bg-primary); padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+                    <div style="font-weight: 600; margin-bottom: 12px;">💎 Изменить тариф</div>
+                    <div style="display: flex; gap: 10px;">
+                        <select class="form-input" id="selectTariff" style="flex: 1;">
+                            <option value="">Выберите тариф...</option>
+                            <option value="free">🆓 Бесплатный</option>
+                            <option value="single">⚡ Разовый (1 запрос)</option>
+                            <option value="advocate">👔 Адвокат (50 запросов)</option>
+                            <option value="firm">🏢 Фирма (200 запросов)</option>
+                            <option value="chamber">👑 Палата (1000 запросов)</option>
+                        </select>
+                        <button class="btn btn-primary" onclick="giveTariffAccess()">Выдать</button>
+                    </div>
+                </div>
+
+                <!-- Block/Unblock -->
+                <div style="background: var(--bg-primary); padding: 16px; border-radius: 8px;">
+                    <div style="font-weight: 600; margin-bottom: 12px;">🔒 Блокировка</div>
+                    <button class="btn btn-warning" id="blockBtn" onclick="toggleUserBlock()" style="width: 100%;">
+                        🚫 Заблокировать пользователя
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Check admin access
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        if (!user.is_admin) {
+            alert('Доступ запрещён');
+            window.location.href = '/';
+        }
+
+        // Tab switching
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+            
+            event.target.classList.add('active');
+            document.getElementById(tabName).classList.add('active');
+            
+            if (tabName === 'users') loadUsers();
+            if (tabName === 'payments') loadPayments();
+            if (tabName === 'tariffs') loadTariffs();
+        }
+
+        // Load stats
+        async function loadStats(period = 'day') {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`/api/admin/stats?period=${period}`, {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('newUsers').textContent = data.data.newUsers || 0;
+                    document.getElementById('todayPayments').textContent = data.data.payments || 0;
+                    document.getElementById('revenue').textContent = (data.data.revenue || 0) + ' ₽';
+                    document.getElementById('activeCases').textContent = data.data.activeCases || 0;
+                    
+                    document.getElementById('userGrowth').textContent = (data.data.userGrowth || 0) + '%';
+                    document.getElementById('paymentGrowth').textContent = (data.data.paymentGrowth || 0) + '%';
+                    document.getElementById('revenueGrowth').textContent = (data.data.revenueGrowth || 0) + '%';
+                    document.getElementById('caseGrowth').textContent = (data.data.caseGrowth || 0) + '%';
+                }
+            } catch (e) {
+                console.error('Failed to load stats:', e);
+            }
+        }
+
+        // Store users data
+        let usersData = [];
+        let currentUserId = null;
+
+        // Load users
+        async function loadUsers() {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch('/api/admin/users', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    usersData = data.data.users;
+                    document.getElementById('usersCount').textContent = data.data.total;
+                    renderUsers(usersData);
+                }
+            } catch (e) {
+                console.error('Failed to load users:', e);
+                document.getElementById('usersTable').innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px; color: var(--danger);">Ошибка загрузки</td></tr>';
+            }
+        }
+
+        // Render users table
+        function renderUsers(users) {
+            const tbody = document.getElementById('usersTable');
+            if (users.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 40px; color: var(--text-secondary);">Пользователи не найдены</td></tr>';
+                return;
+            }
+            
+            tbody.innerHTML = users.map(u => `
+                <tr>
+                    <td>#${u.id}</td>
+                    <td><strong>${u.email}</strong></td>
+                    <td>${u.phone || '-'}</td>
+                    <td><span style="color: var(--accent); font-weight: 600;">${u.credits || 0}</span></td>
+                    <td>${u.tariff || 'Бесплатный'}</td>
+                    <td><span class="badge ${u.is_active ? 'badge-success' : 'badge-danger'}">${u.is_active ? '✅ Активен' : '🚫 Заблокирован'}</span></td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" onclick="openUserModal(${u.id})">⚙️ Управлять</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        // Search users
+        function searchUsers() {
+            const query = document.getElementById('userSearch').value.toLowerCase();
+            const rows = document.querySelectorAll('#usersTable tr');
+            rows.forEach(row => {
+                const email = row.cells[1]?.textContent.toLowerCase() || '';
+                row.style.display = email.includes(query) ? '' : 'none';
+            });
+        }
+
+        // Modal functions
+        function openUserModal(userId) {
+            currentUserId = userId;
+            const user = usersData.find(u => u.id === userId);
+            if (!user) return;
+            
+            // Fill modal data
+            document.getElementById('modalUserId').textContent = userId;
+            document.getElementById('modalEmail').value = user.email;
+            document.getElementById('modalPhone').value = user.phone || 'Не указан';
+            document.getElementById('modalBalance').value = (user.credits || 0) + ' кредитов';
+            document.getElementById('modalStatus').value = user.is_active ? '✅ Активен' : '🚫 Заблокирован';
+            
+            // Update block button text
+            const blockBtn = document.getElementById('blockBtn');
+            blockBtn.textContent = user.is_active ? '🚫 Заблокировать пользователя' : '✅ Разблокировать пользователя';
+            blockBtn.className = user.is_active ? 'btn btn-warning' : 'btn btn-success';
+            
+            document.getElementById('userModal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('userModal').classList.remove('active');
+            currentUserId = null;
+            document.getElementById('addCredits').value = '';
+            document.getElementById('selectTariff').value = '';
+        }
+
+        async function saveUserChanges() {
+            const credits = document.getElementById('addCredits').value;
+            if (!credits || credits <= 0) {
+                alert('Введите количество кредитов');
+                return;
+            }
+            
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`/api/admin/users/${currentUserId}/credits`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer ' + token,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ credits: parseInt(credits) })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    alert(`✅ Начислено ${credits} кредитов! Новый баланс: ${data.data.newBalance}`);
+                    closeModal();
+                    loadUsers();
+                } else {
+                    alert('❌ Ошибка: ' + data.message);
+                }
+            } catch (e) {
+                alert('❌ Ошибка: ' + e.message);
+            }
+        }
+
+        async function toggleUserBlock() {
+            const user = usersData.find(u => u.id === currentUserId);
+            const action = user.is_active ? 'заблокировать' : 'разблокировать';
+            
+            if (!confirm(`Вы уверены, что хотите ${action} пользователя ${user.email}?`)) return;
+            
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`/api/admin/users/${currentUserId}/toggle`, {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    alert('✅ ' + data.message);
+                    closeModal();
+                    loadUsers();
+                } else {
+                    alert('❌ Ошибка: ' + data.message);
+                }
+            } catch (e) {
+                alert('❌ Ошибка: ' + e.message);
+            }
+        }
+
+        async function giveTariffAccess() {
+            const tariff = document.getElementById('selectTariff').value;
+            if (!tariff) {
+                alert('Выберите тариф');
+                return;
+            }
+            
+            const user = usersData.find(u => u.id === currentUserId);
+            if (!confirm(`Выдать тариф "${tariff}" пользователю ${user.email}?`)) return;
+            
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`/api/admin/users/${currentUserId}/tariff`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer ' + token,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ tariff: tariff })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    alert('✅ Тариф выдан!');
+                    closeModal();
+                    loadUsers();
+                } else {
+                    alert('❌ Ошибка: ' + data.message);
+                }
+            } catch (e) {
+                alert('❌ Ошибка: ' + e.message);
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/';
+        }
+
+        // Load tariffs
+        async function loadTariffs(period = 'month') {
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(`/api/admin/tariffs?period=${period}`, {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('totalTariffRevenue').textContent = data.data.totalRevenue.toLocaleString() + ' ₽';
+                    document.getElementById('totalTariffSales').textContent = data.data.totalSales;
+                    
+                    const tbody = document.getElementById('tariffsTable');
+                    tbody.innerHTML = data.data.tariffs.map(t => `
+                        <tr>
+                            <td><strong>${t.name}</strong></td>
+                            <td>${t.price.toLocaleString()} ₽</td>
+                            <td>${t.credits}</td>
+                            <td>${t.sales}</td>
+                            <td>${t.revenue.toLocaleString()} ₽</td>
+                            <td>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <div style="flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden;">
+                                        <div style="width: ${t.share}%; height: 100%; background: var(--accent-gradient);"></div>
+                                    </div>
+                                    <span>${t.share}%</span>
+                                </div>
+                            </td>
+                        </tr>
+                    `).join('');
+                }
+            } catch (e) {
+                console.error('Failed to load tariffs:', e);
+            }
+        }
+
+        // Initial load
+        loadStats();
+        loadTariffs();
+    </script>
+</body>
+</html>

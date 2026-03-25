@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тарифы — Leg AI</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <style>
+        .pricing-container { max-width: 1200px; margin: 100px auto; padding: 20px; }
+        .pricing-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 24px; margin-top: 40px; }
+        .pricing-card { background: white; border-radius: 16px; padding: 32px 24px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); text-align: center; position: relative; transition: transform 0.2s; }
+        .pricing-card:hover { transform: translateY(-4px); }
+        .pricing-card.popular { border: 2px solid #667eea; }
+        .popular-badge { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 6px 20px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+        .price { font-size: 2.5rem; font-weight: 700; color: #1a1a2e; margin: 16px 0; }
+        .price-period { color: #666; font-size: 14px; }
+        .features { list-style: none; padding: 0; margin: 24px 0; text-align: left; }
+        .features li { padding: 10px 0; border-bottom: 1px solid #f0f0f0; color: #444; }
+        .features li:last-child { border-bottom: none; }
+        .btn-pricing { display: block; width: 100%; padding: 14px; border-radius: 8px; text-decoration: none; font-weight: 500; margin-top: 20px; }
+        .btn-outline { border: 2px solid #667eea; color: #667eea; }
+        .btn-outline:hover { background: #667eea; color: white; }
+        .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; }
+        .btn-primary:hover { opacity: 0.9; }
+        .section-title { text-align: center; margin-bottom: 16px; }
+        .section-subtitle { text-align: center; color: #666; margin-bottom: 40px; }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="/" class="logo">
+                <span class="logo-icon">⚖️</span>
+                <span>Leg AI</span>
+            </a>
+            <ul class="nav-links">
+                <li><a href="/">Главная</a></li>
+                <li><a href="/pricing.html">Тарифы</a></li>
+                <li><a href="/how-to.html">Как использовать</a></li>
+            </ul>
+            <div class="nav-buttons">
+                <a href="/login.html" class="btn btn-secondary">Вход</a>
+                <a href="/register.html" class="btn btn-primary">Регистрация</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="pricing-container">
+        <h1 class="section-title">Тарифы</h1>
+        <p class="section-subtitle">Выберите подходящий тариф для ваших задач</p>
+
+        <div class="pricing-grid">
+            <div class="pricing-card">
+                <h3>Разовый</h3>
+                <div class="price">5 000 ₽</div>
+                <p class="price-period">1 кредит</p>
+                <ul class="features">
+                    <li>✓ До 3 документов</li>
+                    <li>✓ Базовый анализ</li>
+                    <li>✓ Разъяснение простым языком</li>
+                    <li>✓ Срок: 5 минут</li>
+                </ul>
+                <a href="/register.html" class="btn-pricing btn-outline">Выбрать</a>
+            </div>
+
+            <div class="pricing-card popular">
+                <div class="popular-badge">ПОПУЛЯРНЫЙ</div>
+                <h3>Адвокат</h3>
+                <div class="price">175 000 ₽</div>
+                <p class="price-period">50 кредитов</p>
+                <ul class="features">
+                    <li>✓ До 7 документов на кредит</li>
+                    <li>✓ Расширенный анализ</li>
+                    <li>✓ Внесение ясности (Clarity)</li>
+                    <li>✓ AI обучается на ваших делах</li>
+                </ul>
+                <a href="/register.html" class="btn-pricing btn-primary">Выбрать</a>
+            </div>
+
+            <div class="pricing-card">
+                <h3>Фирма</h3>
+                <div class="price">500 000 ₽</div>
+                <p class="price-period">175 кредитов</p>
+                <ul class="features">
+                    <li>✓ До 10 документов на кредит</li>
+                    <li>✓ Экономия 18% vs Адвокат</li>
+                    <li>✓ Приоритетная обработка</li>
+                    <li>✓ До 5 пользователей</li>
+                </ul>
+                <a href="/register.html" class="btn-pricing btn-outline">Выбрать</a>
+            </div>
+
+            <div class="pricing-card">
+                <h3>Палата</h3>
+                <div class="price">1 500 000 ₽</div>
+                <p class="price-period">600 кредитов</p>
+                <ul class="features">
+                    <li>✓ До 15 документов на кредит</li>
+                    <li>✓ Экономия 43% vs Адвокат</li>
+                    <li>✓ Максимальный приоритет</li>
+                    <li>✓ Безлимитные пользователи</li>
+                </ul>
+                <a href="/register.html" class="btn-pricing btn-outline">Выбрать</a>
+            </div>
+        </div>
+
+        <div style="margin-top: 60px; padding: 32px; background: #f8f9fa; border-radius: 16px;">
+            <h2 style="text-align: center; margin-bottom: 24px;">Как работают кредиты?</h2>
+            <p style="text-align: center; color: #666; max-width: 700px; margin: 0 auto;">
+                Каждый кредит позволяет создать один юридический документ. 
+                Чем больше тариф — тем больше документов можно создать за один кредит и выше экономия.
+            </p>
+        </div>
+    </div>
+</body>
+</html>

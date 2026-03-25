@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Документ готов - Legal AI</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        .download-container {
+            max-width: 600px;
+            margin: 80px auto;
+            padding: 40px;
+            text-align: center;
+        }
+        .success-icon {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 30px;
+            font-size: 40px;
+        }
+        .download-title {
+            font-size: 32px;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 16px;
+        }
+        .download-subtitle {
+            font-size: 18px;
+            color: #6b7280;
+            margin-bottom: 40px;
+        }
+        .document-card {
+            background: #f9fafb;
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 32px;
+            text-align: left;
+        }
+        .document-icon {
+            width: 48px;
+            height: 48px;
+            background: #3b82f6;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            margin-bottom: 16px;
+        }
+        .document-name {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 8px;
+        }
+        .document-info {
+            font-size: 14px;
+            color: #6b7280;
+        }
+        .download-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 12px;
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            color: white;
+            font-size: 18px;
+            font-weight: 600;
+            padding: 16px 32px;
+            border-radius: 12px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-decoration: none;
+        }
+        .download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(59, 130, 246, 0.4);
+        }
+        .secondary-actions {
+            margin-top: 24px;
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+        }
+        .btn-secondary {
+            color: #6b7280;
+            text-decoration: none;
+            font-size: 14px;
+            transition: color 0.2s;
+        }
+        .btn-secondary:hover {
+            color: #3b82f6;
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <nav class="nav">
+                <a href="/" class="logo">
+                    <span class="logo-icon">⚖️</span>
+                    <span class="logo-text">Legal AI</span>
+                </a>
+                <ul class="nav-links">
+                    <li><a href="/">Главная</a></li>
+                    <li id="nav-dashboard" style="display:none;"><a href="/dashboard.html">Мои документы</a></li>
+                    <li id="nav-logout" style="display:none;"><a href="#" onclick="logout()">Выход</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <div class="download-container">
+            <div class="success-icon">✓</div>
+            <h1 class="download-title">Документ готов!</h1>
+            <p class="download-subtitle">Ваш юридический документ успешно сгенерирован и проверен</p>
+            
+            <div class="document-card">
+                <div class="document-icon">📄</div>
+                <div class="document-name" id="docName">Загрузка...</div>
+                <div class="document-info">
+                    Формат: Microsoft Word (.docx)<br>
+                    Размер: <span id="docSize">—</span>
+                </div>
+            </div>
+            
+            <button class="download-btn" id="downloadBtn" onclick="downloadDocument()">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                    <polyline points="7 10 12 15 17 10"></polyline>
+                    <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                Скачать документ
+            </button>
+            
+            <div class="secondary-actions">
+                <a href="/" class="btn-secondary">Создать ещё документ</a>
+                <a href="/dashboard.html" class="btn-secondary">Все мои документы</a>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // Get case_id from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const caseId = urlParams.get('case_id');
+        
+        if (!caseId) {
+            document.getElementById('docName').textContent = 'Ошибка: документ не найден';
+            document.getElementById('downloadBtn').style.display = 'none';
+        }
+        
+        // Check auth and load document info
+        document.addEventListener('DOMContentLoaded', async function() {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                window.location.href = '/login.html?redirect=' + encodeURIComponent(window.location.href);
+                return;
+            }
+            
+            // Show nav items
+            document.getElementById('nav-dashboard').style.display = 'block';
+            document.getElementById('nav-logout').style.display = 'block';
+            
+            // Load case info
+            if (caseId) {
+                await loadCaseInfo(caseId, token);
+            }
+        });
+        
+        async function loadCaseInfo(caseId, token) {
+            try {
+                const response = await fetch(`/api/v1/case/${caseId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (response.ok) {
+                    const caseData = await response.json();
+                    document.getElementById('docName').textContent = caseData.case_title || 'Юридический документ';
+                }
+            } catch (error) {
+                console.error('Error loading case:', error);
+                document.getElementById('docName').textContent = 'Юридический документ';
+            }
+        }
+        
+        async function downloadDocument() {
+            if (!caseId) return;
+            
+            const token = localStorage.getItem('token');
+            const btn = document.getElementById('downloadBtn');
+            const originalText = btn.innerHTML;
+            
+            // Show loading
+            btn.innerHTML = '<span class="loading"></span> Скачивание...';
+            btn.disabled = true;
+            
+            try {
+                const response = await fetch(`/api/v1/download/${caseId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `document_case_${caseId}.docx`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                    
+                    // Show success
+                    btn.innerHTML = '✓ Скачано!';
+                    setTimeout(() => {
+                        btn.innerHTML = originalText;
+                        btn.disabled = false;
+                    }, 2000);
+                } else {
+                    throw new Error('Download failed');
+                }
+            } catch (error) {
+                console.error('Download error:', error);
+                btn.innerHTML = '❌ Ошибка. Попробуйте снова';
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }, 3000);
+            }
+        }
+        
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            window.location.href = '/';
+        }
+    </script>
+</body>
+</html>

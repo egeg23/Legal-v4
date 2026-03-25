@@ -1,0 +1,68 @@
+# Legal AI Service - Docker Compose Configuration
+# Alternative deployment method using Docker
+
+version: '3.8'
+
+services:
+  legal-ai:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: legal-ai-service
+    restart: unless-stopped
+    
+    environment:
+      - FLASK_ENV=production
+      - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
+      - KIMI_API_KEY=${KIMI_API_KEY}
+      - DATABASE_URL=sqlite:///data/legal_ai.db
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - STRIPE_PUBLIC_KEY=${STRIPE_PUBLIC_KEY}
+    
+    volumes:
+      - legal_ai_data:/app/data
+      - legal_ai_uploads:/app/uploads
+      - ./logs:/app/logs
+    
+    networks:
+      - legal-ai-network
+    
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  nginx:
+    image: nginx:alpine
+    container_name: legal-ai-nginx
+    restart: unless-stopped
+    
+    ports:
+      - "80:80"
+      - "443:443"
+    
+    volumes:
+      - ./nginx-docker.conf:/etc/nginx/conf.d/default.conf:ro
+      - legal_ai_uploads:/var/www/uploads:ro
+      - ./ssl:/etc/nginx/ssl:ro
+      - nginx_logs:/var/log/nginx
+    
+    networks:
+      - legal-ai-network
+    
+    depends_on:
+      - legal-ai
+
+volumes:
+  legal_ai_data:
+    driver: local
+  legal_ai_uploads:
+    driver: local
+  nginx_logs:
+    driver: local
+
+networks:
+  legal-ai-network:
+    driver: bridge

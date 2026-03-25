@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Legal AI Service — Генерация юридических документов</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="header">
+        <div class="container">
+            <nav class="nav">
+                <a href="/" class="logo">
+                    <span class="logo-icon">⚖️</span>
+                    <span class="logo-text">Legal AI</span>
+                </a>
+                <ul class="nav-links">
+                    <li><a href="/">Главная</a></li>
+                    <li><a href="/pricing.html">Тарифы</a></li>
+                    <li id="nav-dashboard" style="display:none;"><a href="/dashboard.html">Мои документы</a></li>
+                    <li id="nav-login"><a href="/login.html" class="btn btn-outline">Вход</a></li>
+                    <li id="nav-register"><a href="/register.html" class="btn btn-primary">Регистрация</a></li>
+                    <li id="nav-logout" style="display:none;"><a href="#" onclick="logout()">Выход</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main>
+        <!-- Hero Section -->
+        <section class="hero">
+            <div class="container">
+                <div class="hero-content">
+                    <h1>Юридические документы за 5 минут</h1>
+                    <p class="hero-subtitle">
+                        Исковые заявления, апелляции, претензии — сгенерированы 
+                        искусственным интеллектом под руководством опытных юристов
+                    </p>
+                    <div class="hero-price">
+                        <span class="price-amount">5 000 ₽</span>
+                        <span class="price-label">за документ</span>
+                    </div>
+                    <a href="#create-document" class="btn btn-large btn-primary">Создать документ</a>
+                    <p class="hero-note">Регистрация за 30 секунд • Оплата после результата</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- How It Works -->
+        <section class="how-it-works">
+            <div class="container">
+                <h2>Как это работает</h2>
+                <div class="steps">
+                    <div class="step">
+                        <div class="step-number">1</div>
+                        <h3>Загрузите документы</h3>
+                        <p>Прикрепите имеющиеся документы по вашему делу — договоры, переписку, акты</p>
+                    </div>
+                    <div class="step">
+                        <div class="step-number">2</div>
+                        <h3>Выберите тип документа</h3>
+                        <p>Или просто опишите ситуацию своими словами — ИИ разберётся</p>
+                    </div>
+                    <div class="step">
+                        <div class="step-number">3</div>
+                        <h3>Получите результат</h3>
+                        <p>Готовый документ в формате Word через 30-60 секунд</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Create Document Form -->
+        <section class="create-section" id="create-document">
+            <div class="container">
+                <div class="form-card">
+                    <h2>Создать документ</h2>
+                    
+                    <!-- Auth Required Message -->
+                    <div id="auth-required" class="auth-message">
+                        <div class="auth-icon">🔒</div>
+                        <h3>Требуется авторизация</h3>
+                        <p>Для создания документа необходимо войти или зарегистрироваться</p>
+                        <div class="auth-buttons">
+                            <a href="/login.html" class="btn btn-outline">Вход</a>
+                            <a href="/register.html" class="btn btn-primary">Регистрация</a>
+                        </div>
+                    </div>
+
+                    <!-- Document Form -->
+                    <form id="document-form" style="display:none;">
+                        <div class="form-group">
+                            <label for="case-title">Название дела *</label>
+                            <input type="text" id="case-title" name="case_title" 
+                                placeholder="Например: Взыскание задолженности по договору №123" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label>Тип документа *</label>
+                            <div class="document-types">
+                                <label class="type-card">
+                                    <input type="checkbox" name="document_type[]" value="complaint">
+                                    <span class="type-icon">📋</span>
+                                    <span class="type-title">Исковое заявление</span>
+                                    <span class="type-desc">Для подачи в суд первой инстанции</span>
+                                </label>
+                                <label class="type-card">
+                                    <input type="checkbox" name="document_type[]" value="appeal">
+                                    <span class="type-icon">📨</span>
+                                    <span class="type-title">Апелляционная жалоба</span>
+                                    <span class="type-desc">Обжалование решения суда</span>
+                                </label>
+                                <label class="type-card">
+                                    <input type="checkbox" name="document_type[]" value="petition">
+                                    <span class="type-icon">📢</span>
+                                    <span class="type-title">Претензия</span>
+                                    <span class="type-desc">Досудебное урегулирование</span>
+                                </label>
+                                <label class="type-card">
+                                    <input type="checkbox" name="document_type[]" value="strategy">
+                                    <span class="type-icon">🛡️</span>
+                                    <span class="type-title">Стратегия защиты</span>
+                                    <span class="type-desc">План действий по делу</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="separator">
+                            <span>или опишите задачу</span>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="custom-request">Опишите вашу ситуацию</label>
+                            <textarea id="custom-request" name="custom_request" rows="4" 
+                                placeholder="Например: Мне нужен иск о взыскании ущерба после ДТП. Виновник не согласен с выплатой..."></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="documents">Прикрепить документы</label>
+                            <div class="file-upload" id="file-upload">
+                                <input type="file" id="documents" name="files" multiple 
+                                    accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png">
+                                <div class="file-upload-content">
+                                    <span class="upload-icon">📎</span>
+                                    <span class="upload-text">Перетащите файлы сюда или нажмите для выбора</span>
+                                    <span class="upload-hint">PDF, DOC, DOCX, TXT, JPG до 10 МБ каждый</span>
+                                </div>
+                            </div>
+                            <div id="file-list" class="file-list"></div>
+                        </div>
+
+                        <div class="form-actions">
+                            <div class="price-display">
+                                <span class="price-label">Стоимость:</span>
+                                <span class="price-value">5 000 ₽</span>
+                            </div>
+                            <button type="submit" class="btn btn-large btn-primary">
+                                Создать документ
+                            </button>
+                        </div>
+                    </form>
+
+                    <!-- Progress Section -->
+                    <div id="progress-section" style="display:none;">
+                        <div class="progress-header">
+                            <h3>Генерация документа</h3>
+                            <div class="progress-percentage" id="progress-percentage">0%</div>
+                        </div>
+                        
+                        <div class="progress-bar-container">
+                            <div class="progress-bar">
+                                <div class="progress-fill" id="progress-fill"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="progress-steps">
+                            <div class="progress-step active" id="step-1">
+                                <div class="step-icon">📄</div>
+                                <div class="step-content">
+                                    <div class="step-title">Анализ документов</div>
+                                    <div class="step-desc">Извлечение ключевой информации</div>
+                                </div>
+                            </div>
+                            <div class="progress-step" id="step-2">
+                                <div class="step-icon">📚</div>
+                                <div class="step-content">
+                                    <div class="step-title">Изучение практики</div>
+                                    <div class="step-desc">Анализ судебных решений</div>
+                                </div>
+                            </div>
+                            <div class="progress-step" id="step-3">
+                                <div class="step-icon">✍️</div>
+                                <div class="step-content">
+                                    <div class="step-title">Формирование документа</div>
+                                    <div class="step-desc">Составление текста</div>
+                                </div>
+                            </div>
+                            <div class="progress-step" id="step-4">
+                                <div class="step-icon">✅</div>
+                                <div class="step-content">
+                                    <div class="step-title">Проверка результата</div>
+                                    <div class="step-desc">Финальная верификация</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="progress-message" id="progress-message">
+                            Инициализация процесса...
+                        </div>
+                    </div>
+
+                    <!-- Download Section -->
+                    <div id="payment-section" style="display:none;">
+                        <div class="payment-success">
+                            <div class="success-icon">✅</div>
+                            <h3>Документ готов!</h3>
+                            <p class="success-text">Ваш документ успешно сгенерирован AI</p>
+                            
+                            <div class="document-preview" id="document-preview">
+                                <div class="preview-header">
+                                    <span class="preview-icon">📄</span>
+                                    <span class="preview-name" id="preview-name">document.docx</span>
+                                </div>
+                            </div>
+                            
+                            <div class="payment-details" style="background: #dcfce7; border-color: #86efac;">
+                                <div class="payment-row">
+                                    <span style="color: #166534;">✨ Тестовый режим — документ бесплатно</span>
+                                </div>
+                            </div>
+                            
+                            <button class="btn btn-large btn-primary" id="pay-button" onclick="downloadDocument()">
+                                📥 Скачать документ
+                            </button>
+                            
+                            <p class="payment-note" style="color: #166534;">Документ в формате .docx готов к использованию</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Features -->
+        <section class="features">
+            <div class="container">
+                <h2>Почему Legal AI</h2>
+                <div class="features-grid">
+                    <div class="feature">
+                        <div class="feature-icon">⚡</div>
+                        <h3>Быстро</h3>
+                        <p>Документ готов за 30-60 секунд вместо нескольких часов у юриста</p>
+                    </div>
+                    <div class="feature">
+                        <div class="feature-icon">💰</div>
+                        <h3>Выгодно</h3>
+                        <p>5 000 ₽ вместо 20 000-50 000 ₽ у традиционного юриста</p>
+                    </div>
+                    <div class="feature">
+                        <div class="feature-icon">🎯</div>
+                        <h3>Точно</h3>
+                        <p>ИИ обучен на сотнях тысяч реальных дел и судебных решений</p>
+                    </div>
+                    <div class="feature">
+                        <div class="feature-icon">🔒</div>
+                        <h3>Безопасно</h3>
+                        <p>Все данные шифруются, доступ только у вас</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <span class="logo-icon">⚖️</span>
+                    <span>Legal AI Service</span>
+                </div>
+                <p>© 2026 Legal AI Service. Все права защищены.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        let currentCaseId = null;
+        let progressInterval = null;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            checkAuthStatus();
+            setupFormValidation();
+            setupFileUpload();
+        });
+
+        function checkAuthStatus() {
+            const token = localStorage.getItem('access_token');
+            if (token) {
+                document.getElementById('auth-required').style.display = 'none';
+                document.getElementById('document-form').style.display = 'block';
+                document.getElementById('nav-dashboard').style.display = 'inline';
+                document.getElementById('nav-logout').style.display = 'inline';
+                document.getElementById('nav-login').style.display = 'none';
+                document.getElementById('nav-register').style.display = 'none';
+            }
+        }
+
+        function setupFormValidation() {
+            const form = document.getElementById('document-form');
+            const docTypeRadios = document.querySelectorAll('input[name="document_type[]"]');
+            const customRequest = document.getElementById('custom-request');
+            const typeCards = document.querySelectorAll('.type-card');
+
+            // Toggle active state for cards
+            docTypeRadios.forEach((radio, index) => {
+                radio.addEventListener('change', () => {
+                    typeCards.forEach(card => card.classList.remove('selected'));
+                    if (radio.checked) {
+                        typeCards[index].classList.add('selected');
+                        customRequest.value = '';
+                    }
+                });
+            });
+
+            // Clear radio when typing in custom request
+            customRequest.addEventListener('input', () => {
+                if (customRequest.value.trim()) {
+                    docTypeRadios.forEach(radio => {
+                        radio.checked = false;
+                    });
+                    typeCards.forEach(card => card.classList.remove('selected'));
+                }
+            });
+
+            form.addEventListener('submit', handleFormSubmit);
+        }
+
+        function setupFileUpload() {
+            const uploadArea = document.getElementById('file-upload');
+            const fileInput = document.getElementById('documents');
+            const fileList = document.getElementById('file-list');
+
+            uploadArea.addEventListener('click', () => fileInput.click());
+
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('dragover');
+            });
+
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.classList.remove('dragover');
+            });
+
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+                fileInput.files = e.dataTransfer.files;
+                updateFileList();
+            });
+
+            fileInput.addEventListener('change', updateFileList);
+
+            function updateFileList() {
+                const files = Array.from(fileInput.files);
+                if (files.length === 0) {
+                    fileList.innerHTML = '';
+                    return;
+                }
+
+                fileList.innerHTML = files.map(file => `
+                    <div class="file-item">
+                        <span class="file-name">${file.name}</span>
+                        <span class="file-size">${(file.size / 1024 / 1024).toFixed(2)} MB</span>
+                    </div>
+                `).join('');
+            }
+        }
+
+        async function handleFormSubmit(e) {
+            e.preventDefault();
+            
+            const caseTitle = document.getElementById('case-title').value.trim();
+            const docType = document.querySelector('input[name="document_type[]"]:checked');
+            const customRequest = document.getElementById('custom-request').value.trim();
+            const files = document.getElementById('documents').files;
+
+            if (!caseTitle) {
+                alert('Введите название дела');
+                return;
+            }
+
+            if (!docType && !customRequest) {
+                alert('Выберите тип документа или опишите задачу');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('case_title', caseTitle);
+            if (docType) {
+                formData.append('document_type', docType.value);
+            }
+            if (customRequest) {
+                formData.append('custom_request', customRequest);
+            }
+
+            for (let file of files) {
+                formData.append('files', file);
+            }
+
+            try {
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer ' + localStorage.getItem('access_token')
+                    },
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    currentCaseId = data.data.case.id;
+                    document.getElementById('document-form').style.display = 'none';
+                    document.getElementById('progress-section').style.display = 'block';
+                    startAnalysis(currentCaseId);
+                } else {
+                    alert(data.message || 'Ошибка при загрузке');
+                }
+            } catch (error) {
+                alert('Ошибка при отправке формы: ' + error.message);
+            }
+        }
+
+        async function startAnalysis(caseId) {
+            try {
+                await fetch('/api/analyze', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ' + localStorage.getItem('access_token')
+                    },
+                    body: JSON.stringify({ case_id: caseId })
+                });
+                startProgressPolling(caseId);
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        function startProgressPolling(caseId) {
+            const messages = [
+                'Анализируем загруженные документы...',
+                'Изучаем юридическую практику...',
+                'Формируем структуру документа...',
+                'Составляем текст...',
+                'Проверяем соответствие законодательству...',
+                'Финальная верификация...'
+            ];
+
+            let progress = 0;
+            let messageIndex = 0;
+
+            progressInterval = setInterval(async () => {
+                try {
+                    const response = await fetch(`/api/case/${caseId}/progress`, {
+                        headers: {
+                            'Authorization': 'Bearer ' + localStorage.getItem('access_token')
+                        }
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success) {
+                        progress = data.data.progress || progress;
+                        updateProgress(progress, messages[messageIndex] || 'Обработка...');
+
+                        if (progress >= 25 && progress < 50) messageIndex = 1;
+                        if (progress >= 50 && progress < 75) messageIndex = 2;
+                        if (progress >= 75 && progress < 90) messageIndex = 3;
+                        if (progress >= 90 && progress < 100) messageIndex = 4;
+                        if (progress >= 100) messageIndex = 5;
+
+                        if (data.data.is_completed) {
+                            clearInterval(progressInterval);
+                            setTimeout(() => showDownloadSection(data.data), 500);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error polling progress:', error);
+                }
+            }, 1000);
+
+            // Fallback: simulate progress if API doesn't respond
+            setTimeout(() => {
+                if (progress === 0) {
+                    simulateProgress(messages);
+                }
+            }, 3000);
+        }
+
+        function simulateProgress(messages) {
+            let progress = 0;
+            let messageIndex = 0;
+
+            const interval = setInterval(() => {
+                progress += Math.random() * 15;
+                if (progress > 100) progress = 100;
+
+                if (progress >= 25 && messageIndex < 1) messageIndex = 1;
+                if (progress >= 50 && messageIndex < 2) messageIndex = 2;
+                if (progress >= 75 && messageIndex < 3) messageIndex = 3;
+                if (progress >= 90 && messageIndex < 4) messageIndex = 4;
+                if (progress >= 100) messageIndex = 5;
+
+                updateProgress(Math.floor(progress), messages[messageIndex]);
+
+                if (progress >= 100) {
+                    clearInterval(interval);
+                    setTimeout(() => showDownloadSection({}), 500);
+                }
+            }, 1500);
+        }
+
+        function updateProgress(progress, message) {
+            document.getElementById('progress-fill').style.width = progress + '%';
+            document.getElementById('progress-percentage').textContent = progress + '%';
+            document.getElementById('progress-message').textContent = message;
+
+            // Update step states
+            const steps = document.querySelectorAll('.progress-step');
+            steps.forEach((step, index) => {
+                step.classList.remove('active', 'completed');
+                const threshold = (index + 1) * 25;
+                if (progress >= threshold) {
+                    step.classList.add('completed');
+                } else if (progress >= threshold - 25 && progress < threshold) {
+                    step.classList.add('active');
+                }
+            });
+        }
+
+        function showDownloadSection(data) {
+            document.getElementById('progress-section').style.display = 'none';
+            document.getElementById('payment-section').style.display = 'block';
+            
+            const caseTitle = document.getElementById('case-title').value;
+            document.getElementById('preview-name').textContent = 
+                (caseTitle || 'Документ') + '.docx';
+        }
+
+        async function downloadDocument() {
+            const btn = document.getElementById('pay-button');
+            btn.disabled = true;
+            btn.textContent = 'Загрузка...';
+
+            try {
+                const response = await fetch('/api/download/' + currentCaseId, {
+                    method: 'GET',
+                    headers: {
+                        'Authorization': 'Bearer ' + localStorage.getItem('access_token')
+                    }
+                });
+
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = document.getElementById('preview-name').textContent;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                    
+                    btn.textContent = '✅ Скачано!';
+                    setTimeout(() => {
+                        window.location.href = '/dashboard.html?downloaded=1';
+                    }, 1500);
+                } else {
+                    const error = await response.json();
+                    throw new Error(error.message || 'Ошибка загрузки');
+                }
+            } catch (error) {
+                alert('Ошибка при скачивании: ' + error.message);
+                btn.disabled = false;
+                btn.textContent = '📥 Скачать документ';
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('refresh_token');
+            localStorage.removeItem('user');
+            window.location.href = '/';
+        }
+    </script>
+</body>
+</html>

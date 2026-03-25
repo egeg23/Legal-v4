@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Legal AI - Юрист за 2000₽</title>
+    <meta name="description" content="AI-сервис для юридического анализа документов. Быстро, точно, доступно.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/styles.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <a href="/" class="logo">
+                    <div class="logo-icon">L</div>
+                    <span>Legal AI</span>
+                </a>
+                <nav class="nav">
+                    <a href="about.html" class="nav-link">О сервисе</a>
+                    <a href="pricing.html" class="nav-link">Стоимость</a>
+                    <a href="dashboard.html" class="nav-link">Личный кабинет</a>
+                    <a href="login.html" class="nav-link auth-link">Войти</a>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main">
+        <section class="hero">
+            <h1 class="hero-title">Юрист за 2000₽</h1>
+            <p class="hero-subtitle">
+                Загрузите документы по вашему делу, и наш AI проанализирует их за несколько минут. 
+                Получите готовые рекомендации и документы.
+            </p>
+
+            <!-- Upload Area -->
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                </div>
+                <p class="upload-text">Перетащите файлы сюда или нажмите для выбора</p>
+                <p class="upload-hint">Поддерживаемые форматы: PDF, DOC, DOCX, TXT (до 50 МБ)</p>
+                <input type="file" id="fileInput" class="upload-input" multiple accept=".pdf,.doc,.docx,.txt">
+            </div>
+
+            <!-- File List -->
+            <div class="file-list hidden" id="fileList"></div>
+
+            <!-- Analyze Button -->
+            <button class="btn btn-primary btn-lg mt-3" id="analyzeBtn" onclick="startAnalysis()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                Анализировать документы
+            </button>
+
+            <!-- Progress -->
+            <div class="progress-container hidden" id="progressContainer">
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: 0%"></div>
+                </div>
+                <p class="progress-text">Анализ документов...</p>
+            </div>
+
+            <!-- Payment Section -->
+            <div class="payment-section hidden" id="paymentSection">
+                <div class="payment-amount">2000₽</div>
+                <p class="payment-description">
+                    Анализ завершён! Оплатите, чтобы получить готовые документы и рекомендации.
+                </p>
+                <button class="btn btn-primary btn-lg" id="paymentBtn" onclick="processPayment()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
+                        <line x1="1" y1="10" x2="23" y2="10"></line>
+                    </svg>
+                    Оплатить 2000₽
+                </button>
+            </div>
+
+            <!-- Download Section -->
+            <div class="download-section hidden" id="downloadSection">
+                <div class="upload-icon" style="color: var(--success-color);">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                    </svg>
+                </div>
+                <h3 style="margin-bottom: 8px;">Оплата прошла успешно!</h3>
+                <p style="margin-bottom: 24px;">Ваши документы готовы к скачиванию.</p>
+                <button class="btn btn-success btn-lg" id="downloadBtn" onclick="downloadDocuments()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="7 10 12 15 17 10"></polyline>
+                        <line x1="12" y1="15" x2="12" y2="3"></line>
+                    </svg>
+                    Скачать документы
+                </button>
+                <p class="mt-2">
+                    <a href="#" onclick="resetUploadArea(); return false;">Загрузить новые документы</a>
+                </p>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-links">
+                    <a href="about.html" class="footer-link">О сервисе</a>
+                    <a href="pricing.html" class="footer-link">Стоимость</a>
+                    <a href="privacy.html" class="footer-link">Политика конфиденциальности</a>
+                </div>
+                <p class="footer-copyright">© 2024 Legal AI. Все права защищены.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="/static/js/main.js"></script>
+</body>
+</html>

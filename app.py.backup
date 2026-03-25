@@ -1,0 +1,927 @@
+"""
+Legal AI Service - Main Application
+Flask backend for legal document analysis and case management.
+"""
+
+import os
+import json
+import logging
+from datetime import datetime
+from functools import wraps
+
+from flask import Flask, request, jsonify, send_file, send_from_directory
+from flask_cors import CORS
+from werkzeug.utils import secure_filename
+from werkzeug.exceptions import RequestEntityTooLarge
+
+# Import local modules
+from config import (
+    init_config, UPLOAD_FOLDER, MAX_CONTENT_LENGTH, 
+    ALLOWED_EXTENSIONS, API_PREFIX, LOG_LEVEL, LOG_FORMAT, LOG_FILE
+)
+from models import db, User, Case, DownloadHistory, PaymentTransaction, IPRequest
+from auth import (
+    require_auth, get_current_user, get_client_ip, 
+    register_user, login_user, generate_token, auth_response, error_response
+)
+from payments import (
+    process_analysis_payment, process_subscription_payment,
+    get_payment_history, get_subscription_pricing,
+    check_rate_limit, record_ip_request
+)
+from document_generator import generate_case_report, generate_download_package
+from kimi_api import analyze_case_documents, check_context_consistency
+
+# Initialize Flask app
+app = Flask(__name__)
+init_config(app)
+CORS(app, resources={r'/api/*': {'origins': '*'}})
+
+# Initialize database
+db.init_app(app)
+with app.app_context():
+    db.create_all()
+
+# Setup logging
+logging.basicConfig(
+    level=getattr(logging, LOG_LEVEL),
+    format=LOG_FORMAT,
+    handlers=[
+        logging.FileHandler(LOG_FILE),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+
+
+# ==================== HELPER FUNCTIONS ====================
+
+def allowed_file(filename):
+    """Check if file extension is allowed."""
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+def save_uploaded_file(file, user_id, case_id):
+    """Save uploaded file to user/case directory."""
+    if file and allowed_file(file.filename):
+        filename = secure_filename(file.filename)
+        
+        # Create user/case directory structure
+        user_dir = os.path.join(UPLOAD_FOLDER, f'user_{user_id}')
+        case_dir = os.path.join(user_dir, f'case_{case_id}')
+        os.makedirs(case_dir, exist_ok=True)
+        
+        # Save file
+        filepath = os.path.join(case_dir, filename)
+        file.save(filepath)
+        
+        return filepath
+    return None
+
+
+def analyze_with_ai(case_id, documents):
+    """
+    PLACEHOLDER: Analyze documents using AI.
+    
+    This function will be integrated with Kimi API later.
+    For now, it returns mock analysis results.
+    
+    Args:
+        case_id: Case ID
+        documents: List of document paths
+    
+    Returns:
+        Dictionary with analysis results
+    """
+    logger.info(f"Starting AI analysis for case {case_id}")
+    
+    # TODO: Integrate with Kimi API
+    # This is a placeholder that returns mock results
+    
+    mock_analysis = {
+        'key_findings': [
+            'Документы соответствуют формальным требованиям',
+            'Выявлены потенциальные правовые риски в разделе об ответственности',
+            'Рекомендуется дополнительная проверка контрагента'
+        ],
+        'legal_issues': [
+            'Необходимо уточнить сроки исполнения обязательств',
+            'Требуется дополнительная правовая экспертиза договорных условий'
+        ],
+        'risks': [
+            {
+                'description': 'Недостаточно четко определены сроки поставки',
+                'level': 'Средний',
+                'mitigation': 'Рекомендуется добавить конкретные даты и штрафные санкции за просрочку'
+            },
+            {
+                'description': 'Отсутствует пункт о форс-мажорных обстоятельствах',
+                'level': 'Высокий',
+                'mitigation': 'Необходимо добавить раздел о форс-мажоре'
+            }
+        ],
+        'recommendations': [
+            'Провести дополнительную проверку контрагента',
+            'Уточнить сроки и условия поставки',
+            'Добавить раздел о форс-мажорных обстоятельствах',
+            'Рассмотреть возможность страхования рисков'
+        ],
+        'next_steps': [
+            'Внести правки в договор согласно рекомендациям',
+            'Получить юридическое заключение по спорным вопросам',
+            'Согласовать изменения с контрагентом'
+        ],
+        'confidence_score': 0.85,
+        'analysis_timestamp': datetime.utcnow().isoformat()
+    }
+    
+    logger.info(f"AI analysis completed for case {case_id}")
+    return mock_analysis
+
+
+def log_request_info():
+    """Log request information."""
+    logger.info(f"{request.method} {request.path} - IP: {get_client_ip()}")
+
+
+# ==================== ERROR HANDLERS ====================
+
+@app.errorhandler(RequestEntityTooLarge)
+def handle_file_too_large(e):
+    """Handle file too large error."""
+    return jsonify({
+        'success': False,
+        'error': 'File too large',
+        'message': f'Maximum file size is {MAX_CONTENT_LENGTH // (1024 * 1024)} MB'
+    }), 413
+
+
+@app.errorhandler(404)
+def handle_not_found(e):
+    """Handle 404 errors."""
+    return jsonify({
+        'success': False,
+        'error': 'Not found',
+        'message': 'The requested resource was not found'
+    }), 404
+
+
+@app.errorhandler(500)
+def handle_server_error(e):
+    """Handle 500 errors."""
+    logger.error(f"Server error: {str(e)}")
+    return jsonify({
+        'success': False,
+        'error': 'Server error',
+        'message': 'An internal server error occurred'
+    }), 500
+
+
+# ==================== AUTHENTICATION ENDPOINTS ====================
+
+@app.route(f'{API_PREFIX}/register', methods=['POST'])
+def register():
+    """
+    Register a new user.
+    
+    Request body:
+        - email: User email
+        - password: User password
+    
+    Returns:
+        User data and authentication tokens
+    """
+    log_request_info()
+    
+    data = request.get_json()
+    if not data:
+        return error_response('No data provided', 'VALIDATION_ERROR', 400)
+    
+    email = data.get('email', '').strip()
+    password = data.get('password', '')
+    
+    if not email or not password:
+        return error_response('Email and password are required', 'VALIDATION_ERROR', 400)
+    
+    ip_address = get_client_ip()
+    user, error = register_user(email, password, ip_address)
+    
+    if error:
+        return error_response(error, 'REGISTRATION_ERROR', 400)
+    
+    logger.info(f"User registered: {email}")
+    return auth_response(user, 'Registration successful')
+
+
+@app.route(f'{API_PREFIX}/login', methods=['POST'])
+def login():
+    """
+    Authenticate user and get tokens.
+    
+    Request body:
+        - email: User email
+        - password: User password
+    
+    Returns:
+        User data and authentication tokens
+    """
+    log_request_info()
+    
+    data = request.get_json()
+    if not data:
+        return error_response('No data provided', 'VALIDATION_ERROR', 400)
+    
+    email = data.get('email', '').strip()
+    password = data.get('password', '')
+    
+    if not email or not password:
+        return error_response('Email and password are required', 'VALIDATION_ERROR', 400)
+    
+    ip_address = get_client_ip()
+    user, error = login_user(email, password, ip_address)
+    
+    if error:
+        return error_response(error, 'AUTHENTICATION_ERROR', 401)
+    
+    logger.info(f"User logged in: {email}")
+    return auth_response(user, 'Login successful')
+
+
+@app.route(f'{API_PREFIX}/refresh', methods=['POST'])
+def refresh_token():
+    """
+    Refresh access token using refresh token.
+    
+    Request body:
+        - refresh_token: Refresh token
+    
+    Returns:
+        New access token
+    """
+    log_request_info()
+    
+    data = request.get_json()
+    if not data:
+        return error_response('No data provided', 'VALIDATION_ERROR', 400)
+    
+    refresh_token = data.get('refresh_token')
+    if not refresh_token:
+        return error_response('Refresh token is required', 'VALIDATION_ERROR', 400)
+    
+    from auth import refresh_access_token
+    new_token, error = refresh_access_token(refresh_token)
+    
+    if error:
+        return error_response(error, 'TOKEN_ERROR', 401)
+    
+    return jsonify({
+        'success': True,
+        'data': {
+            'access_token': new_token,
+            'token_type': 'Bearer',
+            'expires_in': 86400
+        }
+    })
+
+
+@app.route(f'{API_PREFIX}/me', methods=['GET'])
+@require_auth
+def get_current_user_info():
+    """Get current user information."""
+    log_request_info()
+    user = request.current_user
+    return jsonify({
+        'success': True,
+        'data': user.to_dict()
+    })
+
+
+# ==================== CASE MANAGEMENT ENDPOINTS ====================
+
+@app.route(f'{API_PREFIX}/upload', methods=['POST'])
+@require_auth
+def upload_documents():
+    """
+    Upload documents for a case.
+    
+    Form data:
+        - case_title: Title for the new case (optional)
+        - case_id: Existing case ID (optional)
+        - files: One or more files to upload
+    
+    Returns:
+        Case information with uploaded documents
+    """
+    log_request_info()
+    user = request.current_user
+    
+    # Get case info
+    case_title = request.form.get('case_title', 'Новое дело')
+    case_id = request.form.get('case_id')
+    
+    # Get or create case
+    if case_id:
+        case = Case.query.get(case_id)
+        if not case or case.user_id != user.id:
+            return error_response('Case not found or access denied', 'NOT_FOUND', 404)
+    else:
+        case = Case(user_id=user.id, case_title=case_title)
+        db.session.add(case)
+        db.session.commit()
+    
+    # Process uploaded files
+    uploaded_files = []
+    if 'files' in request.files:
+        files = request.files.getlist('files')
+        for file in files:
+            if file.filename:
+                filepath = save_uploaded_file(file, user.id, case.id)
+                if filepath:
+                    case.add_document(filepath)
+                    uploaded_files.append(os.path.basename(filepath))
+    
+    db.session.commit()
+    
+    logger.info(f"Documents uploaded for case {case.id}: {len(uploaded_files)} files")
+    
+    return jsonify({
+        'success': True,
+        'message': f'{len(uploaded_files)} files uploaded successfully',
+        'data': {
+            'case': case.to_dict(),
+            'uploaded_files': uploaded_files
+        }
+    })
+
+
+@app.route(f'{API_PREFIX}/cases', methods=['GET'])
+@require_auth
+def get_cases():
+    """
+    Get list of user's cases.
+    
+    Query parameters:
+        - status: Filter by status (optional)
+        - page: Page number (default: 1)
+        - per_page: Items per page (default: 10)
+    
+    Returns:
+        List of cases
+    """
+    log_request_info()
+    user = request.current_user
+    
+    # Get query parameters
+    status = request.args.get('status')
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+    
+    # Build query
+    query = Case.query.filter_by(user_id=user.id)
+    if status:
+        query = query.filter_by(status=status)
+    
+    # Paginate
+    pagination = query.order_by(Case.created_at.desc()).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+    
+    cases = [case.to_dict() for case in pagination.items]
+    
+    return jsonify({
+        'success': True,
+        'data': {
+            'cases': cases,
+            'pagination': {
+                'page': page,
+                'per_page': per_page,
+                'total': pagination.total,
+                'pages': pagination.pages,
+                'has_next': pagination.has_next,
+                'has_prev': pagination.has_prev
+            }
+        }
+    })
+
+
+@app.route(f'{API_PREFIX}/case/<int:case_id>', methods=['GET'])
+@require_auth
+def get_case(case_id):
+    """
+    Get detailed information about a case.
+    
+    Args:
+        case_id: Case ID
+    
+    Returns:
+        Case details including documents and analysis
+    """
+    log_request_info()
+    user = request.current_user
+    
+    case = Case.query.get(case_id)
+    if not case or case.user_id != user.id:
+        return error_response('Case not found or access denied', 'NOT_FOUND', 404)
+    
+    return jsonify({
+        'success': True,
+        'data': {
+            'case': case.to_dict(include_analysis=True)
+        }
+    })
+
+
+@app.route(f'{API_PREFIX}/case/<int:case_id>', methods=['DELETE'])
+@require_auth
+def delete_case(case_id):
+    """
+    Delete a case and its documents.
+    
+    Args:
+        case_id: Case ID
+    
+    Returns:
+        Success message
+    """
+    log_request_info()
+    user = request.current_user
+    
+    case = Case.query.get(case_id)
+    if not case or case.user_id != user.id:
+        return error_response('Case not found or access denied', 'NOT_FOUND', 404)
+    
+    # Delete associated files
+    import shutil
+    case_dir = os.path.join(UPLOAD_FOLDER, f'user_{user.id}', f'case_{case_id}')
+    if os.path.exists(case_dir):
+        shutil.rmtree(case_dir)
+    
+    # Delete from database
+    db.session.delete(case)
+    db.session.commit()
+    
+    logger.info(f"Case {case_id} deleted by user {user.id}")
+    
+    return jsonify({
+        'success': True,
+        'message': 'Case deleted successfully'
+    })
+
+
+# ==================== ANALYSIS ENDPOINTS ====================
+
+@app.route(f'{API_PREFIX}/analyze', methods=['POST'])
+@require_auth
+def analyze_case():
+    """
+    Start AI analysis for a case.
+    
+    Request body:
+        - case_id: Case ID to analyze
+    
+    Returns:
+        Analysis results
+    """
+    log_request_info()
+    user = request.current_user
+    ip_address = get_client_ip()
+    
+    data = request.get_json()
+    if not data:
+        return error_response('No data provided', 'VALIDATION_ERROR', 400)
+    
+    case_id = data.get('case_id')
+    if not case_id:
+        return error_response('Case ID is required', 'VALIDATION_ERROR', 400)
+    
+    case = Case.query.get(case_id)
+    if not case or case.user_id != user.id:
+        return error_response('Case not found or access denied', 'NOT_FOUND', 404)
+    
+    # Check if case is paid
+    if not case.paid:
+        return jsonify({
+            'success': False,
+            'error': 'Payment required',
+            'message': 'This case requires payment before analysis',
+            'payment_required': True,
+            'amount': 2000
+        }), 402
+    
+    # Check rate limit for subscribers
+    if user.has_active_subscription():
+        allowed, remaining, reset_date = check_rate_limit(user.id, ip_address)
+        if not allowed:
+            return jsonify({
+                'success': False,
+                'error': 'Rate limit exceeded',
+                'message': 'You have exceeded the monthly request limit',
+                'reset_date': reset_date.isoformat()
+            }), 429
+    
+    # Start analysis
+    case.start_analysis()
+    db.session.commit()
+    
+    try:
+        # Run AI analysis
+        documents = case.get_documents()
+        analysis_result = analyze_with_ai(case.id, documents)
+        
+        # Save results
+        case.complete_analysis(analysis_result)
+        
+        # Record IP request for subscribers
+        if user.has_active_subscription():
+            record_ip_request(user.id, ip_address, 'analysis')
+        
+        db.session.commit()
+        
+        logger.info(f"Analysis completed for case {case_id}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Analysis completed successfully',
+            'data': {
+                'case': case.to_dict(include_analysis=True),
+                'rate_limit': {
+                    'remaining': remaining - 1 if user.has_active_subscription() else None
+                } if user.has_active_subscription() else None
+            }
+        })
+    
+    except Exception as e:
+        case.fail_analysis()
+        db.session.commit()
+        logger.error(f"Analysis failed for case {case_id}: {str(e)}")
+        return error_response('Analysis failed', 'ANALYSIS_ERROR', 500)
+
+
+# ==================== PAYMENT ENDPOINTS ====================
+
+@app.route(f'{API_PREFIX}/payment', methods=['POST'])
+@require_auth
+def process_payment():
+    """
+    Process payment for case analysis.
+    
+    Request body:
+        - case_id: Case ID to pay for
+        - payment_method: Payment method (default: 'card')
+    
+    Returns:
+        Payment result
+    """
+    log_request_info()
+    user = request.current_user
+    
+    data = request.get_json()
+    if not data:
+        return error_response('No data provided', 'VALIDATION_ERROR', 400)
+    
+    case_id = data.get('case_id')
+    payment_method = data.get('payment_method', 'card')
+    
+    if not case_id:
+        return error_response('Case ID is required', 'VALIDATION_ERROR', 400)
+    
+    success, result = process_analysis_payment(user.id, case_id, payment_method)
+    
+    if success:
+        logger.info(f"Payment processed for case {case_id} by user {user.id}")
+        return jsonify({
+            'success': True,
+            'message': 'Payment successful',
+            'data': result
+        })
+    else:
+        return jsonify({
+            'success': False,
+            'error': result.get('error'),
+            'message': result.get('message')
+        }), 400
+
+
+@app.route(f'{API_PREFIX}/subscription', methods=['POST'])
+@require_auth
+def subscribe():
+    """
+    Process subscription payment.
+    
+    Request body:
+        - subscription_type: Type of subscription (basic, premium, enterprise)
+        - payment_method: Payment method (default: 'card')
+    
+    Returns:
+        Subscription result
+    """
+    log_request_info()
+    user = request.current_user
+    
+    data = request.get_json()
+    if not data:
+        return error_response('No data provided', 'VALIDATION_ERROR', 400)
+    
+    subscription_type = data.get('subscription_type', 'premium')
+    payment_method = data.get('payment_method', 'card')
+    
+    success, result = process_subscription_payment(user.id, subscription_type, payment_method)
+    
+    if success:
+        logger.info(f"Subscription activated for user {user.id}: {subscription_type}")
+        return jsonify({
+            'success': True,
+            'message': 'Subscription activated successfully',
+            'data': result
+        })
+    else:
+        return jsonify({
+            'success': False,
+            'error': result.get('error'),
+            'message': result.get('message')
+        }), 400
+
+
+@app.route(f'{API_PREFIX}/pricing', methods=['GET'])
+def get_pricing():
+    """Get pricing information."""
+    log_request_info()
+    return jsonify({
+        'success': True,
+        'data': {
+            'document_price': 5000,
+            'currency': 'RUB',
+            'description': 'Стоимость генерации одного юридического документа'
+        }
+    })
+
+
+@app.route(f'{API_PREFIX}/payments/history', methods=['GET'])
+@require_auth
+def payment_history():
+    """
+    Get user's payment history.
+    
+    Query parameters:
+        - page: Page number (default: 1)
+        - per_page: Items per page (default: 20)
+    
+    Returns:
+        List of payment transactions
+    """
+    log_request_info()
+    user = request.current_user
+    
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
+    
+    transactions = get_payment_history(user.id, limit=per_page, offset=(page - 1) * per_page)
+    
+    return jsonify({
+        'success': True,
+        'data': {
+            'transactions': transactions,
+            'page': page,
+            'per_page': per_page
+        }
+    })
+
+
+# ==================== DOWNLOAD ENDPOINTS ====================
+
+@app.route(f'{API_PREFIX}/download/<int:case_id>', methods=['GET'])
+@require_auth
+def download_documents(case_id):
+    """
+    Download case documents and analysis report.
+    
+    Args:
+        case_id: Case ID
+    
+    Query parameters:
+        - type: Download type (documents, analysis, full_report)
+    
+    Returns:
+        ZIP file with documents
+    """
+    log_request_info()
+    user = request.current_user
+    ip_address = get_client_ip()
+    
+    case = Case.query.get(case_id)
+    if not case or case.user_id != user.id:
+        return error_response('Case not found or access denied', 'NOT_FOUND', 404)
+    
+    download_type = request.args.get('type', 'full_report')
+    
+    # Check rate limit for subscribers
+    if user.has_active_subscription():
+        allowed, remaining, reset_date = check_rate_limit(user.id, ip_address)
+        if not allowed:
+            return jsonify({
+                'success': False,
+                'error': 'Rate limit exceeded',
+                'message': 'You have exceeded the monthly request limit',
+                'reset_date': reset_date.isoformat()
+            }), 429
+    
+    try:
+        # Generate documents
+        case_data = case.to_dict(include_analysis=True)
+        
+        import zipfile
+        import tempfile
+        
+        # Create temporary ZIP file
+        temp_dir = tempfile.mkdtemp()
+        zip_path = os.path.join(temp_dir, f'case_{case_id}_download.zip')
+        
+        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+            # Add original documents
+            if download_type in ['documents', 'full_report']:
+                documents = case.get_documents()
+                for doc_path in documents:
+                    if os.path.exists(doc_path):
+                        arcname = os.path.join('documents', os.path.basename(doc_path))
+                        zipf.write(doc_path, arcname)
+            
+            # Add analysis report
+            if download_type in ['analysis', 'full_report'] and case.status == 'completed':
+                report_path = generate_case_report(case_data, temp_dir)
+                zipf.write(report_path, os.path.join('reports', os.path.basename(report_path)))
+        
+        # Record download
+        download_history = DownloadHistory(
+            user_id=user.id,
+            case_id=case_id,
+            ip_address=ip_address,
+            user_agent=request.headers.get('User-Agent'),
+            download_type=download_type
+        )
+        db.session.add(download_history)
+        
+        # Record IP request for subscribers
+        if user.has_active_subscription():
+            record_ip_request(user.id, ip_address, 'download')
+        
+        db.session.commit()
+        
+        logger.info(f"Download generated for case {case_id} by user {user.id}")
+        
+        return send_file(
+            zip_path,
+            mimetype='application/zip',
+            as_attachment=True,
+            download_name=f'case_{case_id}_{download_type}.zip'
+        )
+    
+    except Exception as e:
+        logger.error(f"Download failed for case {case_id}: {str(e)}")
+        return error_response('Download failed', 'DOWNLOAD_ERROR', 500)
+
+
+@app.route(f'{API_PREFIX}/download/report/<int:case_id>', methods=['GET'])
+@require_auth
+def download_report(case_id):
+    """
+    Download analysis report as DOCX.
+    
+    Args:
+        case_id: Case ID
+    
+    Returns:
+        DOCX file
+    """
+    log_request_info()
+    user = request.current_user
+    
+    case = Case.query.get(case_id)
+    if not case or case.user_id != user.id:
+        return error_response('Case not found or access denied', 'NOT_FOUND', 404)
+    
+    if case.status != 'completed':
+        return error_response('Analysis not completed yet', 'ANALYSIS_PENDING', 400)
+    
+    try:
+        # Generate report
+        case_data = case.to_dict(include_analysis=True)
+        import tempfile
+        temp_dir = tempfile.mkdtemp()
+        report_path = generate_case_report(case_data, temp_dir)
+        
+        # Record download
+        download_history = DownloadHistory(
+            user_id=user.id,
+            case_id=case_id,
+            ip_address=get_client_ip(),
+            user_agent=request.headers.get('User-Agent'),
+            download_type='analysis'
+        )
+        db.session.add(download_history)
+        db.session.commit()
+        
+        return send_file(
+            report_path,
+            mimetype='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            as_attachment=True,
+            download_name=f'analysis_report_case_{case_id}.docx'
+        )
+    
+    except Exception as e:
+        logger.error(f"Report generation failed for case {case_id}: {str(e)}")
+        return error_response('Report generation failed', 'GENERATION_ERROR', 500)
+
+
+# ==================== UTILITY ENDPOINTS ====================
+
+@app.route(f'{API_PREFIX}/rate-limit', methods=['GET'])
+@require_auth
+def get_rate_limit():
+    """Get current rate limit status."""
+    log_request_info()
+    user = request.current_user
+    ip_address = get_client_ip()
+    
+    allowed, remaining, reset_date = check_rate_limit(user.id, ip_address)
+    
+    return jsonify({
+        'success': True,
+        'data': {
+            'allowed': allowed,
+            'remaining_requests': remaining,
+            'reset_date': reset_date.isoformat(),
+            'limit': 200,
+            'window_days': 30
+        }
+    })
+
+
+@app.route(f'{API_PREFIX}/health', methods=['GET'])
+def health_check():
+    """Health check endpoint."""
+    return jsonify({
+        'success': True,
+        'status': 'healthy',
+        'timestamp': datetime.utcnow().isoformat(),
+        'version': '1.0.0'
+    })
+
+
+@app.route('/', methods=['GET'])
+def index():
+    """Serve the main HTML page."""
+    return send_from_directory('public', 'index.html')
+
+
+
+
+@app.route('/dashboard.html', methods=['GET'])
+def dashboard_page():
+    """Serve the dashboard HTML page."""
+    return send_from_directory('public', 'dashboard.html')
+
+
+@app.route('/login.html', methods=['GET'])
+def login_page():
+    """Serve the login HTML page."""
+    return send_from_directory('public', 'login.html')
+
+
+@app.route('/register.html', methods=['GET'])
+def register_page():
+    """Serve the register HTML page."""
+    return send_from_directory('public', 'register.html')
+
+
+@app.route('/pricing.html', methods=['GET'])
+def pricing_page():
+    """Serve the pricing HTML page."""
+    return send_from_directory('public', 'pricing.html')
+
+
+@app.route('/about.html', methods=['GET'])
+def about_page():
+    """Serve the about HTML page."""
+    return send_from_directory('public', 'about.html')
+
+
+@app.route('/privacy.html', methods=['GET'])
+def privacy_page():
+    """Serve the privacy HTML page."""
+    return send_from_directory('public', 'privacy.html')
+
+
+@app.route('/processing.html', methods=['GET'])
+def processing_page():
+    """Serve the processing status HTML page."""
+    return send_from_directory('public', 'processing.html')
+
+# ==================== MAIN ====================
+
+if __name__ == '__main__':
+    logger.info("Starting Legal AI Service...")
+    app.run(
+        host='0.0.0.0',
+        port=5000,
+        debug=os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
+    )

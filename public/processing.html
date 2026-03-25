@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Обработка документа — Legal AI Service</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="processing-container">
+        <div class="processing-card">
+            <div class="processing-icon" id="processing-icon">⚖️</div>
+            
+            <h1 class="processing-title">Генерация документа</h1>
+            <p class="processing-subtitle" id="processing-subtitle">Пожалуйста, подождите. Это займет всего несколько секунд...</p>
+            
+            <div class="processing-progress">
+                <div class="progress-header">
+                    <span class="progress-label">Прогресс</span>
+                    <span class="progress-percentage" id="progress-percentage">0%</span>
+                </div>
+                
+                <div class="progress-bar-container">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progress-fill"></div>
+                    </div>
+                </div>
+                
+                <div class="progress-stages" id="progress-stages">
+                    <div class="stage active" data-stage="1">
+                        <div class="stage-dot"></div>
+                        <div class="stage-label">Анализируем ситуацию...</div>
+                    </div>
+                    <div class="stage" data-stage="2">
+                        <div class="stage-dot"></div>
+                        <div class="stage-label">Подбираем шаблон...</div>
+                    </div>
+                    <div class="stage" data-stage="3">
+                        <div class="stage-dot"></div>
+                        <div class="stage-label">Генерируем документ...</div>
+                    </div>
+                    <div class="stage" data-stage="4">
+                        <div class="stage-dot"></div>
+                        <div class="stage-label">Проверяем юридическую корректность...</div>
+                    </div>
+                    <div class="stage" data-stage="5">
+                        <div class="stage-dot"></div>
+                        <div class="stage-label">Готово!</div>
+                    </div>
+                </div>
+                
+                <div class="progress-status" id="progress-status">
+                    <span class="status-badge processing"></span>
+                    <span id="status-text">Инициализация...</span>
+                </div>
+            </div>
+            
+            <div class="processing-actions" id="processing-actions" style="display: none;">
+                <a href="/dashboard.html" class="btn btn-primary btn-large" id="downloadBtn">
+                    Скачать документ
+                </a>
+                <a href="/index.html" class="btn btn-outline">
+                    Создать ещё документ
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const stages = [
+            { id: 1, message: 'Анализируем ситуацию...', min: 0, max: 20 },
+            { id: 2, message: 'Подбираем шаблон...', min: 20, max: 40 },
+            { id: 3, message: 'Генерируем документ...', min: 40, max: 75 },
+            { id: 4, message: 'Проверяем юридическую корректность...', min: 75, max: 95 },
+            { id: 5, message: 'Готово!', min: 95, max: 100 }
+        ];
+
+        let taskId = null;
+        let progressInterval = null;
+        let pollInterval = null;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Получаем task_id из URL
+            const urlParams = new URLSearchParams(window.location.search);
+            taskId = urlParams.get('task_id');
+
+            if (!taskId) {
+                document.getElementById('status-text').textContent = 'Ошибка: не указан ID задачи';
+                document.querySelector('.status-badge').className = 'status-badge error';
+                return;
+            }
+
+            // Запускаем анимацию прогресса
+            startProgressAnimation();
+            
+            // Запускаем polling статуса с API
+            startStatusPolling();
+        });
+
+        function startProgressAnimation() {
+            let progress = 0;
+            let currentStage = 0;
+
+            progressInterval = setInterval(() => {
+                // Случайное увеличение прогресса
+                const increment = Math.random() * 2 + 0.5;
+                progress += increment;
+                
+                if (progress > 98) progress = 98; // Оставляем 100% для завершения
+
+                // Определяем текущий этап
+                for (let i = 0; i < stages.length; i++) {
+                    if (progress >= stages[i].min && progress < stages[i].max) {
+                        currentStage = i;
+                        break;
+                    }
+                }
+
+                updateProgressUI(progress, currentStage);
+            }, 200);
+        }
+
+        function updateProgressUI(progress, stageIndex) {
+            // Обновляем процент
+            document.getElementById('progress-percentage').textContent = Math.floor(progress) + '%';
+            document.getElementById('progress-fill').style.width = progress + '%';
+            
+            // Обновляем текст статуса
+            const statusText = stages[stageIndex].message;
+            document.getElementById('status-text').textContent = statusText;
+
+            // Обновляем этапы
+            const stageElements = document.querySelectorAll('.stage');
+            stageElements.forEach((el, index) => {
+                el.classList.remove('active', 'completed');
+                if (index < stageIndex) {
+                    el.classList.add('completed');
+                } else if (index === stageIndex) {
+                    el.classList.add('active');
+                }
+            });
+        }
+
+        async function startStatusPolling() {
+            // Первый запрос сразу
+            await checkStatus();
+            
+            // Затем каждые 2 секунды
+            pollInterval = setInterval(checkStatus, 2000);
+        }
+
+        async function checkStatus() {
+            try {
+                const response = await fetch(`/api/status/${taskId}`, {
+                    headers: {
+                        'Authorization': 'Bearer ' + (localStorage.getItem('access_token') || '')
+                    }
+                });
+
+                if (!response.ok) {
+                    console.warn('Status API returned:', response.status);
+                    return;
+                }
+
+                const data = await response.json();
+                
+                if (data.success && data.data) {
+                    const status = data.data.status;
+                    const progress = data.data.progress || 0;
+                    
+                    // Обновляем UI на основе ответа API
+                    updateProgressFromAPI(progress, status);
+                    
+                    // Если задача завершена
+                    if (status === 'completed' || status === 'ready' || progress >= 100) {
+                        completeProcessing();
+                    }
+                }
+            } catch (error) {
+                console.error('Error checking status:', error);
+            }
+        }
+
+        function updateProgressFromAPI(progress, status) {
+            // Обновляем прогресс
+            document.getElementById('progress-percentage').textContent = Math.floor(progress) + '%';
+            document.getElementById('progress-fill').style.width = progress + '%';
+            
+            // Определяем этап по прогрессу
+            let stageIndex = 0;
+            for (let i = 0; i < stages.length; i++) {
+                if (progress >= stages[i].min) {
+                    stageIndex = i;
+                }
+            }
+            
+            // Обновляем этапы
+            const stageElements = document.querySelectorAll('.stage');
+            stageElements.forEach((el, index) => {
+                el.classList.remove('active', 'completed');
+                if (index < stageIndex) {
+                    el.classList.add('completed');
+                } else if (index === stageIndex) {
+                    el.classList.add('active');
+                }
+            });
+            
+            // Обновляем сообщение
+            document.getElementById('status-text').textContent = stages[stageIndex].message;
+        }
+
+        function completeProcessing() {
+            // Останавливаем анимации
+            if (progressInterval) clearInterval(progressInterval);
+            if (pollInterval) clearInterval(pollInterval);
+            
+            // Устанавливаем 100%
+            document.getElementById('progress-percentage').textContent = '100%';
+            document.getElementById('progress-fill').style.width = '100%';
+            
+            // Отмечаем все этапы как завершенные
+            document.querySelectorAll('.stage').forEach(el => {
+                el.classList.remove('active');
+                el.classList.add('completed');
+            });
+            
+            // Обновляем статус
+            document.getElementById('status-text').textContent = 'Готово!';
+            document.querySelector('.status-badge').className = 'status-badge ready';
+            
+            // Меняем иконку
+            document.getElementById('processing-icon').textContent = '✅';
+            document.getElementById('processing-icon').style.animation = 'none';
+            
+            // Обновляем заголовок
+            document.querySelector('.processing-title').textContent = 'Документ готов!';
+            document.getElementById('processing-subtitle').textContent = 'Ваш документ успешно сгенерирован и проверен';
+            
+            // Показываем кнопки действий
+            document.getElementById('processing-actions').style.display = 'flex';
+            document.getElementById('processing-actions').style.flexDirection = 'column';
+            document.getElementById('processing-actions').style.gap = '12px';
+            
+            // Обновляем ссылку на скачивание
+            const downloadBtn = document.getElementById('downloadBtn');
+            downloadBtn.href = `/download.html?case_id=${taskId}`;
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Регистрация - Legal AI Service</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .auth-container {
+            width: 100%;
+            max-width: 420px;
+        }
+        .auth-box {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.2);
+        }
+        .auth-box h2 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #1a1a2e;
+            font-size: 1.8rem;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #4a5568;
+            font-weight: 500;
+        }
+        .form-group input {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 1rem;
+            transition: border-color 0.2s;
+        }
+        .form-group input:focus {
+            outline: none;
+            border-color: #22c55e;
+        }
+        .btn {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(34, 197, 94, 0.3);
+        }
+        .auth-links {
+            text-align: center;
+            margin-top: 24px;
+            color: #4a5568;
+        }
+        .auth-links a {
+            color: #16a34a;
+            text-decoration: none;
+        }
+        .error-message {
+            background: #fee;
+            color: #c33;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            display: none;
+        }
+        /* Success overlay - hidden by default */
+        .success-overlay {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        .success-overlay.active {
+            display: block;
+        }
+        .success-icon {
+            font-size: 5rem;
+            margin-bottom: 20px;
+        }
+        .success-title {
+            font-size: 1.8rem;
+            color: #1a1a2e;
+            margin-bottom: 12px;
+        }
+        .success-text {
+            color: #4a5568;
+            margin-bottom: 30px;
+            font-size: 1.1rem;
+        }
+        .countdown-box {
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+        .countdown-text {
+            color: white;
+            font-size: 1.3rem;
+            font-weight: 600;
+        }
+        .btn-white {
+            display: inline-block;
+            background: white;
+            color: #16a34a;
+            padding: 14px 32px;
+            border-radius: 10px;
+            text-decoration: none;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-box">
+            <!-- Register Form -->
+            <div id="registerFormContainer">
+                <h2>Создать аккаунт</h2>
+                
+                <div id="error-message" class="error-message"></div>
+
+                <form class="auth-form" id="register-form">
+                    <div class="form-group">
+                        <label for="username">Имя пользователя</label>
+                        <input type="text" id="username" name="username" required 
+                               placeholder="Придумайте имя">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="email">Email</label>
+                        <input type="email" id="email" name="email" required 
+                               placeholder="Введите email">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="password">Пароль</label>
+                        <input type="password" id="password" name="password" required 
+                               placeholder="Придумайте пароль" minlength="6">
+                    </div>
+
+                    <button type="submit" class="btn">Зарегистрироваться</button>
+                </form>
+
+                <div class="auth-links">
+                    <p>Уже есть аккаунт? <a href="/login.html">Войти</a></p>
+                </div>
+            </div>
+
+            <!-- Success Overlay - Hidden until registration succeeds -->
+            <div id="successOverlay" class="success-overlay">
+                <div class="success-icon">🎉</div>
+                <h2 class="success-title">Регистрация успешна!</h2>
+                <p class="success-text">Добро пожаловать в Legal AI</p>
+                
+                <div class="countdown-box">
+                    <p class="countdown-text">Перенаправление через <span id="seconds">5</span> сек</p>
+                </div>
+                
+                <a href="/dashboard.html" class="btn-white">Перейти сейчас →</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('register-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const errorDiv = document.getElementById('error-message');
+            
+            try {
+                const response = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ username, email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // SECURITY TODO: Move to HttpOnly cookies in Stage 3
+                    // Current: localStorage (vulnerable to XSS)
+                    // Target: HttpOnly + Secure + SameSite cookies set by backend
+                    localStorage.setItem('access_token', data.data.tokens.access_token);
+                    localStorage.setItem('refresh_token', data.data.tokens.refresh_token);
+                    localStorage.setItem('user', JSON.stringify(data.data.user));
+                    
+                    // Hide form, show success
+                    document.getElementById('registerFormContainer').style.display = 'none';
+                    document.getElementById('successOverlay').classList.add('active');
+                    
+                    // Start countdown
+                    let seconds = 5;
+                    const secondsEl = document.getElementById('seconds');
+                    const interval = setInterval(() => {
+                        seconds--;
+                        secondsEl.textContent = seconds;
+                        if (seconds <= 0) {
+                            clearInterval(interval);
+                            window.location.href = '/dashboard.html';
+                        }
+                    }, 1000);
+                } else {
+                    errorDiv.style.display = 'block';
+                    errorDiv.textContent = data.message || 'Ошибка регистрации';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                errorDiv.style.display = 'block';
+                errorDiv.textContent = 'Ошибка соединения с сервером';
+            }
+        });
+
+        // Check if already logged in
+        if (localStorage.getItem('access_token')) {
+            window.location.href = '/dashboard.html';
+        }
+    </script>
+</body>
+</html>
