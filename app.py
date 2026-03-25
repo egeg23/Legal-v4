@@ -373,13 +373,45 @@ IV. ПРОГНОЗ
             db.session.commit()
             time.sleep(2)
             
+            # Validate content before generating DOCX
+            if not generated_content or len(generated_content) < 50:
+                generated_content = f"""ИСКОВОЕ ЗАЯВЛЕНИЕ
+
+В суд общей юрисдикции
+
+Истец: {case_data.get('plaintiff', {}).get('name', 'Истец')}
+Ответчик: {case_data.get('defendant', {}).get('name', 'Ответчик')}
+
+О взыскании задолженности
+
+Сумма иска: {case_data.get('loan_amount', '___')} руб.
+
+На основании изложенного, руководствуясь ст. 807-810 ГК РФ,
+
+ПРОШУ:
+Взыскать с ответчика задолженность.
+
+Дата: {case_data.get('date', '___')}
+Подпись: ________________"""
+            
             # Save generated document
             generated_dir = os.path.join('generated', f'user_{case.user_id}')
             os.makedirs(generated_dir, exist_ok=True)
             docx_path = os.path.join(generated_dir, f'case_{case_id}_document.docx')
             
-            # Generate DOCX
-            generate_legal_document_docx(generated_content, docx_path, case_data)
+            # Generate DOCX with error handling
+            try:
+                generate_legal_document_docx(generated_content, docx_path, case_data)
+            except Exception as docx_error:
+                logger.error(f'DOCX generation failed: {docx_error}')
+                # Create simple DOCX using python-docx directly
+                from docx import Document
+                doc = Document()
+                doc.add_heading('Юридический документ', 0)
+                for line in generated_content.split('\n'):
+                    if line.strip():
+                        doc.add_paragraph(line.strip())
+                doc.save(docx_path)
             
             case.generated_document_path = docx_path
             
