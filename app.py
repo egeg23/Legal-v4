@@ -632,6 +632,8 @@ def upload_documents():
     
     # Process uploaded files
     uploaded_files = []
+    logger.info(f"Upload request: case_title={case_title}, doc_type={document_type}, files_count={len(request.files.getlist('files'))}")
+    
     if 'files' in request.files:
         files = request.files.getlist('files')
         for file in files:
@@ -645,6 +647,7 @@ def upload_documents():
     
     # Log upload info
     logger.info(f"Documents uploaded for case {case.id}: {len(uploaded_files)} files")
+    logger.info(f"Document type: {document_type}, Custom request: {custom_request[:50] if custom_request else 'None'}")
     
     return jsonify({
         'success': True,
