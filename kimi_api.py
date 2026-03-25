@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 # Конфигурация API
 API_BASE_URL = "https://api.moonshot.ai/v1"
 API_KEY = "sk-kUpcQ7a7hqbcXEeJSGbV2n9AGzyM4ECHrr5o7bA8R6lGGzTn"
-DEFAULT_MODEL = "moonshot-v1-8k"
+DEFAULT_MODEL = "moonshot-v1-128k"
 MAX_RETRIES = 3
 TIMEOUT = 90
 
