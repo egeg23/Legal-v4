@@ -243,7 +243,9 @@ def analyze_with_progress(case_id, documents, document_type, custom_request):
                 'court_fee': '3000',
                 'lawyer_fee': '5000',
                 'total_expenses': '8000',
-                'moral_damage': '10000'
+                'moral_damage': '10000',
+                'documents_text': document_texts,  # REAL DOCUMENTS for AI analysis
+                'custom_request': custom_request
             }
             
             # Use custom request if provided, otherwise use selected document type
