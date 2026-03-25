@@ -253,6 +253,14 @@
                     updateProgressUI(100, 'Все документы готовы!');
                     document.getElementById('mainStatus').textContent = '✅ Готово!';
                     document.getElementById('actionButtons').style.display = 'block';
+                    
+                    // Redirect to download page for first completed case
+                    const completedCase = cases.find(c => caseStates[c.id]?.status === 'completed');
+                    if (completedCase && cases.length === 1) {
+                        setTimeout(() => {
+                            window.location.href = `/legal/download.html?case_id=${completedCase.id}&token=${token}`;
+                        }, 1500); // Show "Ready" for 1.5s then redirect
+                    }
                 }
             }, 2000); // Проверяем каждые 2 секунды
         }
