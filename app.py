@@ -301,24 +301,19 @@ def analyze_with_progress(case_id, documents, document_type, custom_request):
             # Combine all document texts for AI context
             combined_documents = "\n\n".join(document_texts) if document_texts else "Документы не предоставлены"
             
+            # Build case_data from extracted documents only - NO HARDCODED VALUES
             case_data = {
-                'court_name': 'Мировой судья судебного участка № ___',
-                'plaintiff': {'name': 'Истец', 'address': 'Адрес истца'},
-                'defendant': {'name': 'Ответчик', 'address': 'Адрес ответчика'},
-                'claim_amount': '5000',
+                'documents_text': combined_documents,  # REAL extracted text from uploaded files
+                'document_count': len(document_texts),
+                'custom_request': custom_request,
                 'date': __import__("datetime").datetime.now().strftime('%d.%m.%Y'),
                 'date_today': __import__("datetime").datetime.now().strftime('"%d" %B %Y г.'),
-                'loan_amount': '100000',
-                'due_date': '15.04.2024',
-                'interest_amount': '5000',
-                'penalty_amount': '2000',
-                'court_fee': '3000',
-                'lawyer_fee': '5000',
-                'total_expenses': '8000',
-                'moral_damage': '10000',
-                'documents_text': combined_documents,  # REAL DOCUMENTS for AI analysis
-                'document_count': len(document_texts),
-                'custom_request': custom_request
+                # AI will extract these from documents_text:
+                # - plaintiff name
+                # - defendant name  
+                # - claim amounts
+                # - dates
+                # - contract numbers
             }
             
             # Use custom request if provided, otherwise use selected document type
