@@ -3,250 +3,372 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Обработка документа — Legal AI Service</title>
-    <link rel="stylesheet" href="/static/css/styles.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <title>Генерация документов — Legal AI</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #fff;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-top: 40px;
+        }
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .progress-container {
+            background: rgba(255,255,255,0.1);
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            border-radius: 4px;
+            transition: width 0.5s ease;
+        }
+        .cases-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .case-item {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid rgba(255,255,255,0.1);
+            transition: all 0.3s;
+        }
+        .case-item:hover {
+            border-color: rgba(102, 126, 234, 0.5);
+        }
+        .case-item.completed {
+            border-color: #10b981;
+            background: rgba(16, 185, 129, 0.1);
+        }
+        .case-item.failed {
+            border-color: #ef4444;
+            background: rgba(239, 68, 68, 0.1);
+        }
+        .case-info h3 {
+            font-size: 1.1em;
+            margin-bottom: 5px;
+        }
+        .case-info .status {
+            font-size: 0.9em;
+            opacity: 0.7;
+        }
+        .case-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .btn {
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-primary {
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            color: white;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        .btn-secondary {
+            background: rgba(255,255,255,0.1);
+            color: white;
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .success-banner {
+            background: linear-gradient(90deg, #10b981, #059669);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .error-banner {
+            background: linear-gradient(90deg, #ef4444, #dc2626);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .download-all {
+            margin-top: 30px;
+            text-align: center;
+        }
+        .download-all .btn {
+            font-size: 1.1em;
+            padding: 15px 30px;
+        }
+    </style>
 </head>
 <body>
-    <div class="processing-container">
-        <div class="processing-card">
-            <div class="processing-icon" id="processing-icon">⚖️</div>
-            
-            <h1 class="processing-title">Генерация документа</h1>
-            <p class="processing-subtitle" id="processing-subtitle">Пожалуйста, подождите. Это займет всего несколько секунд...</p>
-            
-            <div class="processing-progress">
-                <div class="progress-header">
-                    <span class="progress-label">Прогресс</span>
-                    <span class="progress-percentage" id="progress-percentage">0%</span>
-                </div>
-                
-                <div class="progress-bar-container">
-                    <div class="progress-bar">
-                        <div class="progress-fill" id="progress-fill"></div>
-                    </div>
-                </div>
-                
-                <div class="progress-stages" id="progress-stages">
-                    <div class="stage active" data-stage="1">
-                        <div class="stage-dot"></div>
-                        <div class="stage-label">Анализируем ситуацию...</div>
-                    </div>
-                    <div class="stage" data-stage="2">
-                        <div class="stage-dot"></div>
-                        <div class="stage-label">Подбираем шаблон...</div>
-                    </div>
-                    <div class="stage" data-stage="3">
-                        <div class="stage-dot"></div>
-                        <div class="stage-label">Генерируем документ...</div>
-                    </div>
-                    <div class="stage" data-stage="4">
-                        <div class="stage-dot"></div>
-                        <div class="stage-label">Проверяем юридическую корректность...</div>
-                    </div>
-                    <div class="stage" data-stage="5">
-                        <div class="stage-dot"></div>
-                        <div class="stage-label">Готово!</div>
-                    </div>
-                </div>
-                
-                <div class="progress-status" id="progress-status">
-                    <span class="status-badge processing"></span>
-                    <span id="status-text">Инициализация...</span>
-                </div>
+    <div class="container">
+        <div class="header">
+            <h1>Генерация документов</h1>
+            <p id="statusText">Подготовка...</p>
+        </div>
+
+        <div id="progressContainer" class="progress-container">
+            <div class="progress-bar">
+                <div id="progressFill" class="progress-fill" style="width: 0%"></div>
             </div>
-            
-            <div class="processing-actions" id="processing-actions" style="display: none;">
-                <a href="/dashboard.html" class="btn btn-primary btn-large" id="downloadBtn">
-                    Скачать документ
-                </a>
-                <a href="/index.html" class="btn btn-outline">
-                    Создать ещё документ
-                </a>
-            </div>
+            <p id="progressText">Загрузка...</p>
+        </div>
+
+        <div id="casesList" class="cases-list"></div>
+
+        <div id="downloadAllContainer" class="download-all" style="display: none;">
+            <button class="btn btn-primary" onclick="downloadAllDocuments()">
+                📦 Скачать все документы
+            </button>
+        </div>
+
+        <div style="text-align: center; margin-top: 30px;">
+            <a href="/legal/?v=230" class="btn btn-secondary">← Новый запрос</a>
         </div>
     </div>
 
     <script>
-        const stages = [
-            { id: 1, message: 'Анализируем ситуацию...', min: 0, max: 20 },
-            { id: 2, message: 'Подбираем шаблон...', min: 20, max: 40 },
-            { id: 3, message: 'Генерируем документ...', min: 40, max: 75 },
-            { id: 4, message: 'Проверяем юридическую корректность...', min: 75, max: 95 },
-            { id: 5, message: 'Готово!', min: 95, max: 100 }
-        ];
-
-        let taskId = null;
-        let progressInterval = null;
-        let pollInterval = null;
-
-        document.addEventListener('DOMContentLoaded', function() {
-            // Получаем task_id из URL
-            const urlParams = new URLSearchParams(window.location.search);
-            taskId = urlParams.get('task_id');
-
-            if (!taskId) {
-                document.getElementById('status-text').textContent = 'Ошибка: не указан ID задачи';
-                document.querySelector('.status-badge').className = 'status-badge error';
-                return;
+        const API_BASE = 'https://maximov-tech.ru/legal/api';
+        
+        // Parse URL params
+        const urlParams = new URLSearchParams(window.location.search);
+        const caseIds = urlParams.get('cases') ? urlParams.get('cases').split(',') : [];
+        const token = urlParams.get('token') || localStorage.getItem('token');
+        
+        // Load pending cases from localStorage
+        let pendingCases = [];
+        try {
+            const stored = localStorage.getItem('pending_cases');
+            if (stored) {
+                pendingCases = JSON.parse(stored);
             }
-
-            // Запускаем анимацию прогресса
-            startProgressAnimation();
+        } catch (e) {
+            console.error('Error loading pending cases:', e);
+        }
+        
+        // If no pending cases, create from URL
+        if (pendingCases.length === 0 && caseIds.length > 0) {
+            pendingCases = caseIds.map((id, i) => ({
+                id: id,
+                type: 'document_' + (i + 1),
+                name: 'Документ ' + (i + 1)
+            }));
+        }
+        
+        const caseStates = {};
+        let completedCount = 0;
+        let failedCount = 0;
+        
+        function init() {
+            renderCasesList();
+            startProgressTracking();
+        }
+        
+        function renderCasesList() {
+            const container = document.getElementById('casesList');
+            container.innerHTML = '';
             
-            // Запускаем polling статуса с API
-            startStatusPolling();
-        });
-
-        function startProgressAnimation() {
-            let progress = 0;
-            let currentStage = 0;
-
-            progressInterval = setInterval(() => {
-                // Случайное увеличение прогресса
-                const increment = Math.random() * 2 + 0.5;
-                progress += increment;
+            pendingCases.forEach(caseItem => {
+                caseStates[caseItem.id] = {
+                    status: 'processing',
+                    progress: 0,
+                    message: 'В очереди...'
+                };
                 
-                if (progress > 98) progress = 98; // Оставляем 100% для завершения
-
-                // Определяем текущий этап
-                for (let i = 0; i < stages.length; i++) {
-                    if (progress >= stages[i].min && progress < stages[i].max) {
-                        currentStage = i;
-                        break;
-                    }
-                }
-
-                updateProgressUI(progress, currentStage);
-            }, 200);
-        }
-
-        function updateProgressUI(progress, stageIndex) {
-            // Обновляем процент
-            document.getElementById('progress-percentage').textContent = Math.floor(progress) + '%';
-            document.getElementById('progress-fill').style.width = progress + '%';
-            
-            // Обновляем текст статуса
-            const statusText = stages[stageIndex].message;
-            document.getElementById('status-text').textContent = statusText;
-
-            // Обновляем этапы
-            const stageElements = document.querySelectorAll('.stage');
-            stageElements.forEach((el, index) => {
-                el.classList.remove('active', 'completed');
-                if (index < stageIndex) {
-                    el.classList.add('completed');
-                } else if (index === stageIndex) {
-                    el.classList.add('active');
-                }
+                const caseEl = document.createElement('div');
+                caseEl.className = 'case-item';
+                caseEl.id = `case-${caseItem.id}`;
+                caseEl.innerHTML = `
+                    <div class="case-info">
+                        <h3>${getDocTypeName(caseItem.type)}</h3>
+                        <span class="status" id="status-${caseItem.id}">В очереди...</span>
+                    </div>
+                    <div class="case-actions" id="actions-${caseItem.id}">
+                        <div class="spinner"></div>
+                    </div>
+                `;
+                container.appendChild(caseEl);
             });
         }
-
-        async function startStatusPolling() {
-            // Первый запрос сразу
-            await checkStatus();
-            
-            // Затем каждые 2 секунды
-            pollInterval = setInterval(checkStatus, 2000);
+        
+        function getDocTypeName(type) {
+            const names = {
+                'complaint': 'Исковое заявление',
+                'appeal': 'Апелляционная жалоба',
+                'petition': 'Досудебная претензия',
+                'statement': 'Стратегия защиты',
+                'cassation': 'Кассационная жалоба',
+                'supervisory': 'Надзорная жалоба'
+            };
+            return names[type] || type;
         }
-
-        async function checkStatus() {
-            try {
-                const response = await fetch(`/api/status/${taskId}`, {
-                    headers: {
-                        'Authorization': 'Bearer ' + (localStorage.getItem('access_token') || '')
+        
+        async function startProgressTracking() {
+            for (const caseItem of pendingCases) {
+                await trackCaseProgress(caseItem);
+            }
+        }
+        
+        async function trackCaseProgress(caseItem) {
+            const maxAttempts = 300; // 5 minutes max
+            let attempts = 0;
+            
+            while (attempts < maxAttempts) {
+                try {
+                    const response = await fetch(`${API_BASE}/case/${caseItem.id}/progress`, {
+                        headers: {'Authorization': 'Bearer ' + token}
+                    });
+                    
+                    if (!response.ok) {
+                        await new Promise(r => setTimeout(r, 1000));
+                        attempts++;
+                        continue;
                     }
-                });
-
-                if (!response.ok) {
-                    console.warn('Status API returned:', response.status);
-                    return;
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        const state = data.data;
+                        updateCaseUI(caseItem.id, state);
+                        
+                        if (state.status === 'completed' || state.status === 'failed') {
+                            break;
+                        }
+                    }
+                    
+                    await new Promise(r => setTimeout(r, 1000));
+                    attempts++;
+                    
+                } catch (err) {
+                    console.error('Progress tracking error:', err);
+                    await new Promise(r => setTimeout(r, 1000));
+                    attempts++;
                 }
-
-                const data = await response.json();
+            }
+        }
+        
+        function updateCaseUI(caseId, state) {
+            caseStates[caseId] = state;
+            
+            const caseEl = document.getElementById(`case-${caseId}`);
+            const statusEl = document.getElementById(`status-${caseId}`);
+            const actionsEl = document.getElementById(`actions-${caseId}`);
+            
+            if (!caseEl || !statusEl || !actionsEl) return;
+            
+            statusEl.textContent = `${state.message} (${state.progress}%)`;
+            
+            if (state.status === 'completed') {
+                caseEl.className = 'case-item completed';
+                actionsEl.innerHTML = `
+                    <a href="${API_BASE}/download/${caseId}?token=${token}" 
+                       class="btn btn-primary" 
+                       download>
+                        📥 Скачать
+                    </a>
+                `;
+                completedCount++;
+            } else if (state.status === 'failed') {
+                caseEl.className = 'case-item failed';
+                actionsEl.innerHTML = `<span style="color: #ef4444;">❌ Ошибка</span>`;
+                failedCount++;
+            }
+            
+            updateOverallProgress();
+        }
+        
+        function updateOverallProgress() {
+            const total = pendingCases.length;
+            const done = completedCount + failedCount;
+            const percent = Math.round((done / total) * 100);
+            
+            document.getElementById('progressFill').style.width = percent + '%';
+            document.getElementById('progressText').textContent = 
+                `Обработано ${done} из ${total} документов`;
+            document.getElementById('statusText').textContent = 
+                done === total ? 'Готово!' : 'Генерация документов...';
+            
+            if (done === total) {
+                document.getElementById('downloadAllContainer').style.display = 'block';
                 
-                if (data.success && data.data) {
-                    const status = data.data.status;
-                    const progress = data.data.progress || 0;
-                    
-                    // Обновляем UI на основе ответа API
-                    updateProgressFromAPI(progress, status);
-                    
-                    // Если задача завершена
-                    if (status === 'completed' || status === 'ready' || progress >= 100) {
-                        completeProcessing();
-                    }
-                }
-            } catch (error) {
-                console.error('Error checking status:', error);
-            }
-        }
-
-        function updateProgressFromAPI(progress, status) {
-            // Обновляем прогресс
-            document.getElementById('progress-percentage').textContent = Math.floor(progress) + '%';
-            document.getElementById('progress-fill').style.width = progress + '%';
-            
-            // Определяем этап по прогрессу
-            let stageIndex = 0;
-            for (let i = 0; i < stages.length; i++) {
-                if (progress >= stages[i].min) {
-                    stageIndex = i;
+                const container = document.getElementById('progressContainer');
+                if (failedCount === 0) {
+                    container.className = 'success-banner';
+                    container.innerHTML = '<h2>✅ Все документы готовы!</h2>';
+                } else {
+                    container.className = 'error-banner';
+                    container.innerHTML = `<h2>⚠️ Готово: ${completedCount}, Ошибок: ${failedCount}</h2>`;
                 }
             }
-            
-            // Обновляем этапы
-            const stageElements = document.querySelectorAll('.stage');
-            stageElements.forEach((el, index) => {
-                el.classList.remove('active', 'completed');
-                if (index < stageIndex) {
-                    el.classList.add('completed');
-                } else if (index === stageIndex) {
-                    el.classList.add('active');
-                }
-            });
-            
-            // Обновляем сообщение
-            document.getElementById('status-text').textContent = stages[stageIndex].message;
         }
-
-        function completeProcessing() {
-            // Останавливаем анимации
-            if (progressInterval) clearInterval(progressInterval);
-            if (pollInterval) clearInterval(pollInterval);
+        
+        async function downloadAllDocuments() {
+            const completedCases = pendingCases.filter(c => caseStates[c.id]?.status === 'completed');
             
-            // Устанавливаем 100%
-            document.getElementById('progress-percentage').textContent = '100%';
-            document.getElementById('progress-fill').style.width = '100%';
-            
-            // Отмечаем все этапы как завершенные
-            document.querySelectorAll('.stage').forEach(el => {
-                el.classList.remove('active');
-                el.classList.add('completed');
-            });
-            
-            // Обновляем статус
-            document.getElementById('status-text').textContent = 'Готово!';
-            document.querySelector('.status-badge').className = 'status-badge ready';
-            
-            // Меняем иконку
-            document.getElementById('processing-icon').textContent = '✅';
-            document.getElementById('processing-icon').style.animation = 'none';
-            
-            // Обновляем заголовок
-            document.querySelector('.processing-title').textContent = 'Документ готов!';
-            document.getElementById('processing-subtitle').textContent = 'Ваш документ успешно сгенерирован и проверен';
-            
-            // Показываем кнопки действий
-            document.getElementById('processing-actions').style.display = 'flex';
-            document.getElementById('processing-actions').style.flexDirection = 'column';
-            document.getElementById('processing-actions').style.gap = '12px';
-            
-            // Обновляем ссылку на скачивание
-            const downloadBtn = document.getElementById('downloadBtn');
-            downloadBtn.href = `/download.html?case_id=${taskId}`;
+            for (const caseItem of completedCases) {
+                const link = document.createElement('a');
+                link.href = `${API_BASE}/download/${caseItem.id}?token=${token}`;
+                link.download = '';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                await new Promise(r => setTimeout(r, 500)); // Delay between downloads
+            }
         }
+        
+        // Start
+        init();
     </script>
 </body>
 </html>
