@@ -80,12 +80,19 @@ def get_client_ip():
 
 
 def get_auth_token():
-    """Extract token from Authorization header."""
+    """Extract token from Authorization header or query string."""
+    # Try header first
     auth_header = request.headers.get('Authorization')
     if auth_header:
         parts = auth_header.split()
         if len(parts) == 2 and parts[0].lower() == 'bearer':
             return parts[1]
+    
+    # Fallback to query string (for download links)
+    token = request.args.get('token')
+    if token:
+        return token
+    
     return None
 
 
