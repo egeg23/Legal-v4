@@ -7,6 +7,8 @@ Flask backend for legal document analysis and case management.
 """
 
 import os
+import subprocess
+import tempfile
 import json
 import logging
 import threading
@@ -175,6 +177,69 @@ def save_uploaded_file(file, user_id, case_id):
     return None
 
 
+def extract_text_from_file(file_path):
+    """
+    Extract text from various file types with OCR support for scanned PDFs.
+    """
+    ext = os.path.splitext(file_path)[1].lower()
+    
+    if ext == '.txt':
+        try:
+            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                return f.read()[:15000]
+        except Exception as e:
+            return f"[Error: {e}]"
+    
+    elif ext == '.pdf':
+        # Try pdftotext first
+        try:
+            result = subprocess.run(
+                ['pdftotext', '-layout', file_path, '-'],
+                capture_output=True, text=True, timeout=30
+            )
+            text = result.stdout.strip()
+            if len(text) > 200:
+                return text[:15000]
+            print(f"PDF is scanned, using OCR...")
+        except Exception as e:
+            print(f"pdftotext failed: {e}")
+        
+        # OCR for scanned PDFs
+        try:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                subprocess.run(['pdfimages', '-png', file_path, f'{tmpdir}/page'],
+                             capture_output=True, timeout=30)
+                images = sorted([f for f in os.listdir(tmpdir) if f.endswith('.png')])
+                if not images:
+                    return "[No images found in PDF]"
+                
+                all_text = []
+                for img in images[:10]:
+                    result = subprocess.run(
+                        ['tesseract', os.path.join(tmpdir, img), '-', '-l', 'rus+eng'],
+                        capture_output=True, text=True, timeout=30
+                    )
+                    if result.stdout.strip():
+                        all_text.append(result.stdout.strip())
+                
+                combined = '\n\n'.join(all_text)
+                return combined[:15000] if combined else "[OCR found no text]"
+        except Exception as e:
+            return f"[OCR Error: {e}]"
+    
+    elif ext == '.docx':
+        try:
+            import zipfile
+            with zipfile.ZipFile(file_path, 'r') as z:
+                xml = z.read('word/document.xml').decode('utf-8', errors='ignore')
+                import re
+                return re.sub(r'<[^>]+>', ' ', xml)[:15000]
+        except Exception as e:
+            return f"[DOCX Error: {e}]"
+    
+    return "[Unsupported file type]"
+
+
 def analyze_with_progress(case_id, documents, document_type, custom_request):
     """
     Analyze documents with progress updates (runs in background thread).
@@ -220,10 +285,14 @@ def analyze_with_progress(case_id, documents, document_type, custom_request):
             document_texts = []
             for doc_path in documents:
                 try:
-                    with open(doc_path, 'r', encoding='utf-8', errors='ignore') as f:
-                        document_texts.append(f.read()[:5000])  # Limit text length
-                except:
-                    pass
+                    text = extract_text_from_file(doc_path)
+                    if text and not text.startswith('['):
+                        document_texts.append(text)
+                        print(f"✓ Extracted {len(text)} chars from {os.path.basename(doc_path)}")
+                    else:
+                        print(f"✗ Failed to extract from {os.path.basename(doc_path)}: {text}")
+                except Exception as e:
+                    print(f"✗ Error: {e}")
             
             # Use mock analysis
             analysis_result = analyze_case_documents(document_texts or ['Документ для анализа'])
