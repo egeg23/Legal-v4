@@ -418,6 +418,7 @@ IV. ПРОГНОЗ
             # Complete
             analysis_result['generated_content'] = generated_content[:500] + '...'
             case.complete_analysis(analysis_result)
+            case.paid = True  # Auto-mark as paid (free mode)
             db.session.commit()
             
             logger.info(f"Analysis completed for case {case_id}")
@@ -1209,9 +1210,6 @@ def download_document(case_id):
     case = Case.query.get(case_id)
     if not case or case.user_id != user.id:
         return error_response('Дело не найдено или доступ запрещен', 'NOT_FOUND', 404)
-    
-    if not case.paid:
-        return error_response('Документ не оплачен', 'PAYMENT_REQUIRED', 402)
     
     if not case.generated_document_path or not os.path.exists(case.generated_document_path):
         return error_response('Документ еще не сгенерирован', 'NOT_READY', 400)
