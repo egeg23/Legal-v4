@@ -396,6 +396,20 @@
                                 type: docType,
                                 name: docName
                             });
+                            
+                            // START ANALYSIS immediately after upload
+                            fetch(`${API_BASE}/analyze`, {
+                                method: 'POST',
+                                headers: {
+                                    'Authorization': 'Bearer ' + token,
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({case_id: data.data.case.id})
+                            }).then(r => r.json()).then(analysisData => {
+                                console.log('Analysis started for case', data.data.case.id, analysisData);
+                            }).catch(err => {
+                                console.error('Failed to start analysis:', err);
+                            });
                         }
                     } catch (err) {
                         clearTimeout(timeoutId);
