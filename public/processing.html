@@ -270,10 +270,9 @@
                 card.className = 'case-card completed';
                 statusEl.innerHTML = '✅ Готово';
                 actionsEl.innerHTML = `
-                    <a href="${API_BASE}/download/${caseId}?token=${token}" 
-                       class="download-btn" download>
+                    <button onclick="downloadDocument(${caseId})" class="download-btn">
                         📥 Скачать документ
-                    </a>
+                    </button>
                 `;
             } else if (data.status === 'failed') {
                 card.className = 'case-card failed';
@@ -287,19 +286,69 @@
             return Object.values(caseStates).every(s => s.status === 'completed' || s.status === 'failed');
         }
         
-        function downloadAll() {
-            cases.forEach((c, i) => {
-                if (caseStates[c.id]?.status === 'completed') {
-                    setTimeout(() => {
-                        const link = document.createElement('a');
-                        link.href = `${API_BASE}/download/${c.id}?token=${token}`;
-                        link.download = '';
-                        document.body.appendChild(link);
-                        link.click();
-                        document.body.removeChild(link);
-                    }, i * 500);
+        
+        
+        async function downloadDocument(caseId) {
+            try {
+                const btn = event.target;
+                btn.textContent = '⏳ Загрузка...';
+                btn.disabled = true;
+                
+                const response = await fetch(`${API_BASE}/download/${caseId}?token=${token}`);
+                
+                if (!response.ok) {
+                    throw new Error('Download failed: ' + response.status);
                 }
-            });
+                
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `document_case_${caseId}.docx`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+                
+                btn.textContent = '✅ Скачано!';
+                setTimeout(() => {
+                    btn.textContent = '📥 Скачать документ';
+                    btn.disabled = false;
+                }, 2000);
+            } catch (err) {
+                console.error('Download error:', err);
+                alert('Ошибка скачивания: ' + err.message);
+                btn.textContent = '❌ Ошибка';
+                btn.disabled = false;
+            }
+        }
+        
+        // Download all completed documents
+        async function downloadAll() {
+            const completedCases = cases.filter(c => caseStates[c.id]?.status === 'completed');
+            if (completedCases.length === 0) return;
+            
+            for (let i = 0; i < completedCases.length; i++) {
+                const c = completedCases[i];
+                try {
+                    const response = await fetch(`${API_BASE}/download/${c.id}?token=${token}`);
+                    if (!response.ok) continue;
+                    
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `${c.type || 'document'}_case_${c.id}.docx`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                    
+                    await new Promise(r => setTimeout(r, 500)); // Delay between downloads
+                } catch (e) {
+                    console.error('Download error for case', c.id, e);
+                }
+            }
         }
         
         // Start
